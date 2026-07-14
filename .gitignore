@@ -1,0 +1,44 @@
+# dependencies
+/node_modules
+/node_modules/.vite
+
+# compiled output
+/dist
+/tsconfig.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# auto-copied at build time by scripts/copy-player-assets.mjs — regenerated
+# from node_modules, not authored here
+/public/assets/sunbird-quml-player.js
+/public/assets/sunbird-quml-player-styles.css
+
+# coverage
+/coverage
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/*
+
+# System files
+.DS_Store
+Thumbs.db
+
+npm-debug.log
+yarn-error.log
