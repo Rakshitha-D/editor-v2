@@ -33,8 +33,7 @@ The component renders in the light DOM (no Shadow DOM), so it relies on the page
 The `dist/` folder contains more than just `index.js`/`style.css`; it also includes assets that are referenced at **fixed, root-relative runtime paths**, not resolved via the module graph. Your app must make these reachable at the paths below (e.g. copy them into your public/static directory, or serve `dist/` itself at your app root):
 
 - `dist/assets/sunbird-quml-player.js` and `dist/assets/sunbird-quml-player-styles.css` — the QuML player used for question/questionset preview, lazy-loaded at runtime from `/assets/sunbird-quml-player.js` by default (override via `config.playerScriptUrl`).
-- `dist/assets/libs/mathEquation/**` — the MathQuill/KaTeX equation-editor modal (iframe), resolved relative to `index.js`'s own location.
-- `dist/fonts/**` — KaTeX fonts used by the math/equation rendering.
+- `dist/assets/libs/mathEquation/**` — the MathQuill/KaTeX equation-editor modal (iframe), loaded from the fixed path `/assets/libs/mathEquation/plugin/mathModal/index.html`. Copy the whole `mathEquation` folder as-is, including its nested `fonts/` (KaTeX) and `css`/`js` subfolders — its `index.html`, `katex.min.css`, and `mathquill.css` all load these siblings by relative path, so they must stay nested exactly as shipped, not flattened or split across other static folders.
 - `dist/ckeditor/ckeditor.js` — CKEditor 4 classic build used for rich-text question/option fields. This is **not loaded automatically**; the host page must load it as a global `<script>` tag before the editor mounts (it registers `window.ClassicEditor`, which `CKEditorField` looks for).
 
 ---
@@ -188,8 +187,7 @@ interface IConfig {
 ```ts
 type ToolbarAction =
   | 'back' | 'preview' | 'sendForReview' | 'onFormValueChange' | 'onFormStatusChange'
-  | 'saveContent' | 'publish' | 'reject' | 'sendBackForCorrections'
-  | 'sourcingApprove' | 'sourcingReject' | 'addQuestion' | 'addSection' | 'deleteNode';
+  | 'saveContent' | 'publish' | 'reject';
 ```
 
 ---
@@ -258,19 +256,28 @@ Registered out of the box (matching the old editor's six built-in QuML types):
 ## Development setup
 
 ```bash
-# Clone the monorepo
-git clone https://github.com/Sunbird-inQuiry/editor.git
-cd editor/projects/questionset-editor-react
+# Clone the repo
+git clone https://github.com/Sunbird-inQuiry/editor-v2.git
+cd editor
 
 # Install
 npm install
 
-# Dev server (mock API by default; set BASE_URL to proxy to a real backend)
+# Dev server with mock data — no .env needed, just run:
 npm run dev
+```
 
-# Build library (runs tsc -b && vite build)
-npm run build
+To point the dev server at a real backend instead of mock data, copy `.env.example` to `.env` and fill in your credentials (`BASE_URL`, `AUTH_TOKEN`, `USER_TOKEN`, `CONTENT_ID`, etc.):
 
+```bash
+cp .env.example .env
+# edit .env with your credentials
+
+npm run build   # runs tsc -b && vite build
+npm run serve   # standalone server.js, reads .env
+```
+
+```bash
 # Run tests
 npm test
 ```
