@@ -46,17 +46,33 @@ function insertAtRange(html: string, range: Range) {
     range.insertNode(frag);
     range.collapse(false);
     if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+
+    // range.insertNode() is raw DOM manipulation — unlike
+    // execCommand('insertHTML', ...) (used elsewhere for paste), it fires no
+    // native 'input' event, so ContentEditable's onInput (the only thing
+    // that syncs the edited DOM back into React state) never runs and the
+    // inserted equation never reaches the saved question body. Dispatch one
+    // manually so React's delegated listener picks it up.
+    if (host) host.dispatchEvent(new InputEvent('input', { bubbles: true }));
   } catch (err) {
     console.error('[MathModal] insertAtRange failed:', err);
   }
 }
 
-// Resolved against this bundle's own URL (not the host page's domain root) —
-// this package is published to npm and its dist/ assets get consumed from
-// node_modules by the portal, so a root-relative '/assets/...' path resolves
-// against the portal's own origin instead of wherever this package's dist/
-// actually lives, and 404s through to the portal's own SPA fallback page.
-const MATH_MODAL_URL = new URL('./assets/libs/mathEquation/plugin/mathModal/index.html', import.meta.url).href;
+// Root-relative — same convention as ckeditor.js and the KaTeX fonts (see
+// README "Static assets that must be served"): the host must copy
+// dist/assets/libs/mathEquation/** to its own served root.
+//
+// NOT resolved via `new URL('./...', import.meta.url)`: when a consuming
+// app's own bundler (e.g. the portal's Vite build) processes this package as
+// source, that pattern only copies the single referenced index.html into the
+// host's own hashed output — it can't know to also carry along index.html's
+// own sibling files (katex.min.js/css, mathquill.js/css, css/mathmodal.css,
+// js/mathmodal.js), which aren't referenced from any JS. The flattened
+// index.html then requests those siblings at the wrong (host-root) path,
+// 404s, and gets served the host's SPA fallback page instead (surfacing as
+// "Refused to apply/execute ... MIME type ('text/html')" console errors).
+const MATH_MODAL_URL = '/assets/libs/mathEquation/plugin/mathModal/index.html';
 
 export default function MathModal({ anchor, onClose, savedRange }: MathModalProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -121,6 +137,22 @@ export default function MathModal({ anchor, onClose, savedRange }: MathModalProp
     };
   }, [onClose]);
 
+  // The vendored mathModal iframe's own "×" button only calls its internal
+  // closeModal(), which never notifies us via onInit — it instead reaches
+  // out (via window.frameElement, the cross-frame handle to this <iframe>)
+  // and removes the iframe from OUR dom directly, assuming it fully owns its
+  // embedding structure. Detect that external removal and unmount our own
+  // backdrop/wrapper in response, instead of leaving them stranded on screen.
+  useEffect(() => {
+    const popup = document.getElementById('math-modal-popup');
+    if (!popup) return;
+    const observer = new MutationObserver(() => {
+      if (iframeRef.current && !popup.contains(iframeRef.current)) onClose();
+    });
+    observer.observe(popup, { childList: true });
+    return () => observer.disconnect();
+  }, [onClose]);
+
   return createPortal(
     <>
       {/* Backdrop */}
@@ -149,6 +181,13 @@ export default function MathModal({ anchor, onClose, savedRange }: MathModalProp
           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           title="Equation Editor"
         />
+        {/* mathmodal.js's own closeModal() calls
+            window.frameElement.nextSibling.remove() as part of tearing down
+            what it assumes is its own embedding structure — without a real
+            sibling here that throws (TypeError on null), and its own
+            self-removal (the next line, which is what the MutationObserver
+            above detects) never runs. */}
+        <div aria-hidden="true" style={{ display: 'none' }} />
       </div>
     </>,
     document.body,
