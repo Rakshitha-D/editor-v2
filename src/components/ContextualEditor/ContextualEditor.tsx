@@ -227,7 +227,15 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
           <Suspense fallback={<PanelSpinner />}>
             <QuestionEditor
               editorMode={editorMode}
-              onBack={() => setInlineEditorOpen(false)}
+              onBack={() => {
+                setInlineEditorOpen(false);
+                // Select the question's own parent section instead of
+                // leaving the question selected — keeps "Add Question"
+                // enabled and the section visibly expanded (OutlineTree
+                // opens the ancestor chain of whatever's selected).
+                const node = selectedNodeId ? useTreeStore.getState().getNodeById(selectedNodeId) : null;
+                if (node?.parent) selectNode(node.parent);
+              }}
             />
           </Suspense>
         </div>
