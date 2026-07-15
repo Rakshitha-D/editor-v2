@@ -3,6 +3,7 @@ import { Icon } from '../../shared/Icon';
 import ContentEditable from '../../shared/ContentEditable';
 import { useQuestionStore } from '../../../store/question.store';
 import { useLabels } from '../../../hooks/useLabels';
+import { htmlToText } from '../../../utils/html';
 
 interface BooleanEditorProps { readOnly?: boolean; }
 
@@ -23,8 +24,8 @@ export default function BooleanEditor({ readOnly = false }: BooleanEditorProps) 
     const needsSeed =
       options.length === 0 ||
       (options.length === 2 &&
-        !options[0].body?.replace(/<[^>]+>/g, '').trim() &&
-        !options[1].body?.replace(/<[^>]+>/g, '').trim());
+        !htmlToText(options[0].body ?? '').trim() &&
+        !htmlToText(options[1].body ?? '').trim());
     if (needsSeed) {
       setOptions([
         { id: options[0]?.id ?? `opt-${nextId.current++}`, body: 'True',  isCorrect: false },

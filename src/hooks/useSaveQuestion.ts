@@ -349,7 +349,7 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
   const formMarks = Number(formMeta.maxScore);
 
   const isExisting = activeQuestion?.identifier && !activeQuestion.identifier.startsWith('temp-');
-  const autoName = ((questionBody || '').replace(/<[^>]+>/g, '').slice(0, 60).trim() || 'Untitled Question');
+  const autoName = (htmlToText(questionBody || '').slice(0, 60).trim() || 'Untitled Question');
 
   const questionName = formName
     ?? (isExisting ? activeQuestion?.name : undefined)

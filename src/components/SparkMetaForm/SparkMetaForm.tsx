@@ -6,6 +6,7 @@ import type { ICategoryField } from '../../api/categoryDefinition';
 import styles from './SparkMetaForm.module.scss';
 import ImagePickerModal from '../shared/ImagePickerModal';
 import ContentEditable from '../shared/ContentEditable';
+import { htmlToText } from '../../utils/html';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -188,7 +189,7 @@ function makeFieldValidator(field: ICategoryField) {
 
     const str = value !== undefined && value !== null
       ? (inputType === 'richtext'
-          ? String(value).replace(/<[^>]*>/g, '').replace(/&nbsp;| /g, ' ')
+          ? htmlToText(String(value))
           : String(value)
         ).trim()
       : '';

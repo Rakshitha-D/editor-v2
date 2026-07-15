@@ -4,8 +4,16 @@ import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 let baseUrl = '';
 let apiSlug = '/api';
 
+// Avoids a regex quantifier immediately before an anchor (CodeQL
+// js/polynomial-redos) — a plain loop has no backtracking to worry about.
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end--;
+  return value.slice(0, end);
+}
+
 export function setApiBaseUrl(url: string): void {
-  baseUrl = url.replace(/\/+$/, '');
+  baseUrl = stripTrailingSlashes(url);
 }
 
 /**
@@ -14,7 +22,7 @@ export function setApiBaseUrl(url: string): void {
  * portal host passes `/portal`.
  */
 export function setApiSlug(slug: string): void {
-  const trimmed = slug.trim().replace(/\/+$/, '');
+  const trimmed = stripTrailingSlashes(slug.trim());
   if (!trimmed) return;
   apiSlug = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
