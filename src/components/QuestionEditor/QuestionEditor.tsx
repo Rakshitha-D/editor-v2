@@ -14,6 +14,7 @@ import ImagePickerModal from '../shared/ImagePickerModal';
 import { lazy, Suspense } from 'react';
 import { useTreeStore } from '../../store/tree.store';
 import { getContentId } from '../../utils/context';
+import { htmlToText } from '../../utils/html';
 
 const QumlPlayer = lazy(() => import('../QumlPlayer/QumlPlayer'));
 import { createPortal } from 'react-dom';
@@ -293,7 +294,7 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
   // stem and all answer inputs are filled (config toggles/solution excluded).
   // An image counts as content (image-only stems/options are valid).
   const plain = (html?: string) => {
-    const text = (html ?? '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+    const text = htmlToText(html ?? '').trim();
     return text || (/<(img|figure)\b/i.test(html ?? '') ? '[image]' : '');
   };
   // Validation runs against the PRIMARY language (en) — other languages are
