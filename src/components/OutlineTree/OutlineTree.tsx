@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Icon } from '../shared/Icon';
 import { useLabels } from '../../hooks/useLabels';
 import { useTreeStore } from '../../store/tree.store';
@@ -294,28 +294,6 @@ const OutlineTree: React.FC<OutlineTreeProps> = ({ onCollapse }) => {
     return ids;
   });
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
-
-  // Keep the selected node's ancestor chain expanded — e.g. returning from
-  // saving a question re-selects its parent section (ContextualEditor's
-  // onBack), which should show that section open, not collapsed.
-  useEffect(() => {
-    if (!selectedNodeId) return;
-    const store = useTreeStore.getState();
-    const ancestorIds: string[] = [];
-    let current = store.getNodeById(selectedNodeId);
-    current = current?.parent ? store.getNodeById(current.parent) : undefined;
-    while (current) {
-      ancestorIds.push(current.id);
-      current = current.parent ? store.getNodeById(current.parent) : undefined;
-    }
-    if (ancestorIds.length === 0) return;
-    setOpenIds(prev => {
-      if (ancestorIds.every(id => prev.has(id))) return prev;
-      const next = new Set(prev);
-      ancestorIds.forEach(id => next.add(id));
-      return next;
-    });
-  }, [selectedNodeId]);
 
   const handleToggle = useCallback((id: string) => {
     setOpenIds(prev => {
