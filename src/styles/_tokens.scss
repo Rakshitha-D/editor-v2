@@ -158,7 +158,7 @@
   // Rubik matches the Sunbird Spark portal's own default (--app-font-family).
   // portal-bridge.scss overrides this with var(--app-font-family, 'Rubik', ...)
   // when embedded — kept in sync here so the standalone default agrees.
-  --sbx-font-sans:  'Rubik', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system,
+  --sbx-font-sans:  'Rubik', ui-sans-serif, system-ui, -apple-system,
                     BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
                     Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
                     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
