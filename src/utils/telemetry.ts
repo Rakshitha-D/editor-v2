@@ -2,7 +2,7 @@
  * Telemetry emitter — parity with the old editor's telemetry.service.ts:
  * START / END / IMPRESSION / INTERACT / ERROR events with the standard
  * Sunbird envelope, batched (size 20 like the old CsTelemetryModule config)
- * and POSTed to `${context.host}${context.endpoint || '/data/v3/telemetry'}`.
+ * and POSTed to `${context.host}${apislug || '/action'}${context.endpoint || '/data/v3/telemetry'}`.
  * When the host page provides window.EkTelemetry, events are handed to it
  * instead of the internal batcher.
  */
@@ -24,6 +24,17 @@ let buffer: Array<Record<string, unknown>> = [];
 // Old editor parity (editor.component.ts's pageStartTime) — set once when the
 // editor mounts, reused to compute `duration` on every IMPRESSION/END.
 let editorMountedAt = 0;
+// Old editor parity (telemetry.service.ts's `this.pdata.pid = \`${pid}.${env}\``)
+// — an env-suffixed app id for downstream analytics segmentation, derived
+// once at init rather than mutating the host-owned context.pdata in place.
+let resolvedPdata: { id: string; ver: string; pid?: string } | null = null;
+
+/** Old editor parity (telemetry.service.ts's `this.uid = this.context.uid`) —
+ * shared by actor.id and context.uid so the two never disagree for the
+ * flexible/standalone-host context shape this editor also supports. */
+function resolveUid(context: IContext | null): string {
+  return context?.user?.id ?? context?.userId ?? context?.uid ?? 'anonymous';
+}
 
 function currentUri(): string {
   // No client-side router in this app (confirmed: no react-router usage) —
@@ -39,8 +50,13 @@ function mid(): string {
 
 function endpointUrl(): string {
   const host = ctx?.host ?? '';
+  // Real telemetry-sdk parity: URL is host + apislug + endpoint (default
+  // apislug '/action') — neither the portal nor old editor ever override
+  // this in practice, they rely on the SDK's own default, same as
+  // player-v2's initializeCsSdk.
+  const apislug = ctx?.apislug || '/action';
   const endpoint = ctx?.endpoint || '/data/v3/telemetry';
-  return `${host}${endpoint}`;
+  return `${host}${apislug}${endpoint}`;
 }
 
 function buildEvent(eid: string, edata: Record<string, unknown>): Record<string, unknown> {
@@ -49,12 +65,13 @@ function buildEvent(eid: string, edata: Record<string, unknown>): Record<string,
     ets: Date.now(),
     ver: VER,
     mid: mid(),
-    actor: { id: ctx?.user?.id ?? ctx?.userId ?? ctx?.uid ?? 'anonymous', type: 'User' },
+    actor: { id: resolveUid(ctx), type: 'User' },
     context: {
       channel: ctx?.channel ?? '',
-      pdata: ctx?.pdata ?? { id: 'sunbird-questionset-editor', ver: '1.0' },
+      pdata: resolvedPdata ?? ctx?.pdata ?? { id: 'sunbird-questionset-editor', ver: '1.0' },
       env: ctx?.env ?? 'questionset_editor',
       sid: ctx?.sid ?? '',
+      uid: resolveUid(ctx),
       did: ctx?.did ?? '',
       cdata: ctx?.cdata ?? [],
       rollup: ctx?.contextRollup ?? ctx?.rollup ?? {},
@@ -88,6 +105,13 @@ function flush(useBeacon = false): void {
       headers: {
         'Content-Type': 'application/json',
         ...(ctx.authToken ? { Authorization: `Bearer ${ctx.authToken}` } : {}),
+        // Real telemetry-sdk parity (TelemetrySyncManager.syncEvents) — only
+        // reachable here, not on the sendBeacon path below: sendBeacon can't
+        // carry custom headers at all, a browser API limitation the real SDK
+        // (jQuery.ajax-only, no sendBeacon path) never has to deal with either.
+        'x-app-id': (resolvedPdata ?? ctx.pdata)?.id ?? '',
+        'x-device-id': ctx.did ?? '',
+        'x-channel-id': ctx.channel ?? '',
       },
       body: payload,
       keepalive: true,
@@ -122,6 +146,14 @@ export function initTelemetry(context: IContext, contentId: string): void {
   ctx = context;
   objectId = contentId;
   editorMountedAt = Date.now();
+  resolvedPdata = context.pdata
+    ? {
+        ...context.pdata,
+        pid: context.pdata.pid
+          ? `${context.pdata.pid}.${context.env ?? 'questionset_editor'}`
+          : context.pdata.pid,
+      }
+    : null;
 }
 
 export function setTelemetryPageId(id: string): void {

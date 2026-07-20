@@ -100,3 +100,86 @@ describe('telemetry — uri/duration/pageid/stacktrace fidelity (old editor pari
     expect(JSON.parse(edata.stacktrace)).toEqual({ status: 500, url: '/api/question/update' });
   });
 });
+
+describe('telemetry — context.uid / pdata.pid env-suffixing (old editor parity)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve()));
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('navigator', {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('context.uid matches the old-editor context shape (user.id)', () => {
+    initTelemetry({ ...ctx, user: { id: 'user-1' } } as IContext, 'do_123');
+    const start = vi.fn();
+    (window as { EkTelemetry?: unknown }).EkTelemetry = { start };
+    telemetryStart();
+    const event = start.mock.calls[0][0];
+    expect(event.context.uid).toBe('user-1');
+    expect(event.actor.id).toBe('user-1');
+  });
+
+  it("context.uid matches the standalone-host context shape (userId), so it never disagrees with actor.id", () => {
+    initTelemetry({ ...ctx, userId: 'user-2' } as IContext, 'do_123');
+    const start = vi.fn();
+    (window as { EkTelemetry?: unknown }).EkTelemetry = { start };
+    telemetryStart();
+    const event = start.mock.calls[0][0];
+    expect(event.context.uid).toBe('user-2');
+    expect(event.actor.id).toBe('user-2');
+  });
+
+  it('context.pdata.pid is env-suffixed once at init, without mutating the host-owned pdata object', () => {
+    const hostPdata = { id: 'sunbird-questionset-editor', ver: '1.0', pid: 'contentEditor' };
+    initTelemetry({ ...ctx, env: 'staging', pdata: hostPdata } as IContext, 'do_123');
+    const start = vi.fn();
+    (window as { EkTelemetry?: unknown }).EkTelemetry = { start };
+    telemetryStart();
+    expect(start.mock.calls[0][0].context.pdata.pid).toBe('contentEditor.staging');
+    expect(hostPdata.pid).toBe('contentEditor'); // untouched
+  });
+});
+
+describe('telemetry — apislug URL prefix + real-SDK headers (old editor parity)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve()));
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('navigator', {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults the telemetry URL to the /action apislug when the host does not provide one', () => {
+    initTelemetry(ctx, 'do_123');
+    telemetryStart();
+    flushTelemetry();
+    const [url] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe('https://example.com/action/data/v3/telemetry');
+  });
+
+  it('honors an explicit host-provided apislug', () => {
+    initTelemetry({ ...ctx, apislug: '/custom' } as IContext, 'do_123');
+    telemetryStart();
+    flushTelemetry();
+    const [url] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe('https://example.com/custom/data/v3/telemetry');
+  });
+
+  it('sends x-app-id/x-device-id/x-channel-id alongside Content-Type on the fetch path', () => {
+    initTelemetry(ctx, 'do_123');
+    telemetryStart();
+    flushTelemetry();
+    const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options.headers).toMatchObject({
+      'Content-Type': 'application/json',
+      'x-app-id': 'test',
+      'x-device-id': 'did-1',
+      'x-channel-id': 'channel-1',
+    });
+  });
+});
