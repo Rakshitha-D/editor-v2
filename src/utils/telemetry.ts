@@ -182,8 +182,23 @@ export function telemetryImpression(pageid = pageId): void {
   });
 }
 
-export function telemetryInteract(id: string, pageid = pageId): void {
-  dispatch('INTERACT', { type: 'click', id, pageid });
+/**
+ * Old editor parity (telemetry.service.ts's getTelemetryInteractEdata):
+ * `subtype`/`extra` carry real signal (e.g. which option was marked
+ * correct) — included only when provided, omitted otherwise (matches old's
+ * `_.omitBy(..., _.isUndefined)`).
+ */
+export function telemetryInteract(
+  id: string,
+  options?: { pageid?: string; subtype?: string; extra?: Record<string, unknown> },
+): void {
+  dispatch('INTERACT', {
+    type: 'click',
+    id,
+    pageid: options?.pageid ?? pageId,
+    ...(options?.subtype !== undefined ? { subtype: options.subtype } : {}),
+    ...(options?.extra !== undefined ? { extra: options.extra } : {}),
+  });
 }
 
 /**

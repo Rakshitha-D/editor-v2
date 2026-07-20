@@ -4,6 +4,7 @@ import {
   telemetryStart,
   telemetryEnd,
   telemetryImpression,
+  telemetryInteract,
   telemetryError,
   setTelemetryPageId,
   flushTelemetry,
@@ -98,6 +99,51 @@ describe('telemetry — uri/duration/pageid/stacktrace fidelity (old editor pari
     telemetryError('Failed to save.', undefined, { status: 500, url: '/api/question/update' });
     const edata = error.mock.calls[0][0].edata;
     expect(JSON.parse(edata.stacktrace)).toEqual({ status: 500, url: '/api/question/update' });
+  });
+});
+
+describe('telemetryInteract — subtype/extra (old editor getTelemetryInteractEdata parity)', () => {
+  beforeEach(() => {
+    initTelemetry(ctx, 'do_123');
+    setTelemetryPageId('questionset_editor'); // pageId is module state; reset since another suite may have changed it
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve()));
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('navigator', {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('omits subtype/extra when not provided', () => {
+    const interact = vi.fn();
+    (window as { EkTelemetry?: unknown }).EkTelemetry = { interact };
+    telemetryInteract('add_option');
+    const edata = interact.mock.calls[0][0].edata;
+    expect(edata).toEqual({ type: 'click', id: 'add_option', pageid: 'questionset_editor' });
+  });
+
+  it('includes subtype and extra when provided (e.g. mark_as_right_anwser carries which option)', () => {
+    const interact = vi.fn();
+    (window as { EkTelemetry?: unknown }).EkTelemetry = { interact };
+    telemetryInteract('mark_as_right_anwser', { extra: { answer: '1' } });
+    const edata = interact.mock.calls[0][0].edata;
+    expect(edata.subtype).toBeUndefined();
+    expect(edata.extra).toEqual({ answer: '1' });
+  });
+
+  it('allows an explicit pageid override', () => {
+    const interact = vi.fn();
+    (window as { EkTelemetry?: unknown }).EkTelemetry = { interact };
+    telemetryInteract('solution_type', { pageid: 'question', subtype: 'single_select', extra: { solution_type: 'video' } });
+    const edata = interact.mock.calls[0][0].edata;
+    expect(edata).toEqual({
+      type: 'click',
+      id: 'solution_type',
+      pageid: 'question',
+      subtype: 'single_select',
+      extra: { solution_type: 'video' },
+    });
   });
 });
 
