@@ -21,6 +21,17 @@ let ctx: IContext | null = null;
 let objectId = '';
 let pageId = 'questionset_editor';
 let buffer: Array<Record<string, unknown>> = [];
+// Old editor parity (editor.component.ts's pageStartTime) — set once when the
+// editor mounts, reused to compute `duration` on every IMPRESSION/END.
+let editorMountedAt = 0;
+
+function currentUri(): string {
+  // No client-side router in this app (confirmed: no react-router usage) —
+  // the actual browser URL is the closest real equivalent to old's
+  // `this.router.url`, and does change if this editor is embedded at a real
+  // route in the host portal.
+  return typeof window !== 'undefined' && window.location ? window.location.href : '';
+}
 
 function mid(): string {
   return `QS:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -110,6 +121,7 @@ function dispatch(eid: string, edata: Record<string, unknown>): void {
 export function initTelemetry(context: IContext, contentId: string): void {
   ctx = context;
   objectId = contentId;
+  editorMountedAt = Date.now();
 }
 
 export function setTelemetryPageId(id: string): void {
@@ -121,20 +133,40 @@ export function telemetryStart(): void {
 }
 
 export function telemetryEnd(): void {
-  dispatch('END', { type: 'editor', pageid: pageId });
+  dispatch('END', {
+    type: 'editor',
+    pageid: pageId,
+    duration: (Date.now() - editorMountedAt) / 1000,
+  });
   flush(true);
 }
 
 export function telemetryImpression(pageid = pageId): void {
-  dispatch('IMPRESSION', { type: 'edit', pageid, uri: '' });
+  dispatch('IMPRESSION', {
+    type: 'edit',
+    pageid,
+    uri: currentUri(),
+    duration: (Date.now() - editorMountedAt) / 1000,
+  });
 }
 
 export function telemetryInteract(id: string, pageid = pageId): void {
   dispatch('INTERACT', { type: 'click', id, pageid });
 }
 
-export function telemetryError(err: string, errtype = 'SYSTEM'): void {
-  dispatch('ERROR', { err, errtype, stacktrace: '' });
+/**
+ * Log a player/editor-level error. `detail` carries real diagnostic context
+ * (old editor parity: apiErrorHandling's `{response, request}`) — pass the
+ * raw error/response info when available; omitted for messages with no
+ * underlying error object (e.g. a client-side validation notice).
+ */
+export function telemetryError(err: string, errtype = 'SYSTEM', detail?: unknown): void {
+  dispatch('ERROR', {
+    err,
+    errtype,
+    stacktrace: detail !== undefined ? JSON.stringify(detail) : '',
+    pageid: pageId,
+  });
 }
 
 export function flushTelemetry(): void {
