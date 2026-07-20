@@ -9,6 +9,7 @@ import { PublishChecklist } from '../modals/PublishChecklist';
 import { QualityParamsModal } from '../modals/QualityParamsModal';
 import styles from './Topbar.module.scss';
 import { labelFrom } from '../../utils/labels';
+import { telemetryInteract } from '../../utils/telemetry';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -116,7 +117,16 @@ const ReviewCommentModal: React.FC<ReviewCommentModalProps> = ({
           </Button>
           <Button
             variant={submitVariant}
-            onClick={() => onConfirm(comment.trim())}
+            onClick={() => {
+              // Old editor parity: shared by both Reject and Send-Back-for-
+              // Corrections in old's single add_review_comments dialog, same
+              // as this shared component.
+              telemetryInteract('submit_review', {
+                subtype: 'submit',
+                extra: { key: 'dialog_id', value: 'add_review_comments' },
+              });
+              onConfirm(comment.trim());
+            }}
             disabled={comment.trim().length === 0}
           >
             {submitLabel}
@@ -199,7 +209,21 @@ const ConfirmReviewModal: React.FC<ConfirmReviewModalProps> = ({ onConfirm, onCa
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={onConfirm} disabled={!agreed}>
+          <Button
+            variant="primary"
+            onClick={() => {
+              // This dialog IS old's term-and-condition.component.html
+              // (same title/consent copy) — its own submit maps to old's T&C
+              // 'submit' id, distinct from the 'send_for_review' launch click
+              // on Topbar's own Send for Review button below.
+              telemetryInteract('submit', {
+                subtype: 'submit',
+                extra: { key: 'dialog_id', value: 'accepting_terms_conditions', termAndConditions: agreed },
+              });
+              onConfirm();
+            }}
+            disabled={!agreed}
+          >
             Submit
           </Button>
         </div>
@@ -309,7 +333,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         {/* ── Left: Back + Title + Status ─────────────────────── */}
           <button
             className="ce-back"
-            onClick={() => emit('back')}
+            onClick={() => { telemetryInteract('back', { subtype: 'launch' }); emit('back'); }}
             aria-label="Go back"
             type="button"
           >
@@ -356,7 +380,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <button
               className="ce-btn ghost"
               type="button"
-              onClick={() => setShowFeedback(true)}
+              onClick={() => { telemetryInteract('view_comments', { subtype: 'launch' }); setShowFeedback(true); }}
               title="View reviewer feedback"
             >
               <Icon name="info" size={15} />
@@ -368,7 +392,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           <button
             className="ce-btn ghost"
             type="button"
-            onClick={() => emit('preview')}
+            onClick={() => { telemetryInteract('preview', { subtype: 'launch' }); emit('preview'); }}
             disabled={isSaving}
             title="Preview question set"
           >
@@ -383,7 +407,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <button
               className="ce-btn ghost"
               type="button"
-              onClick={() => emit('saveContent')}
+              onClick={() => { telemetryInteract('save_as_draft', { subtype: 'submit' }); emit('saveContent'); }}
             >
               {L('button_labels.save_collection_btn_label', 'Save as Draft')}
             </button>
@@ -394,7 +418,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <button
               className="ce-btn primary"
               type="button"
-              onClick={() => setShowConfirmReview(true)}
+              onClick={() => { telemetryInteract('send_for_review', { subtype: 'launch' }); setShowConfirmReview(true); }}
               disabled={buttonLoaders.saveContent || isSaving || !isFormValid}
               title={!isFormValid ? 'Fill all required fields before sending for review' : undefined}
             >
@@ -409,7 +433,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => openModal('publishChecklist')}
+                onClick={() => { telemetryInteract('publish', { subtype: 'submit' }); openModal('publishChecklist'); }}
                 disabled={buttonLoaders.publishContent || !isFormValid}
                 isLoading={buttonLoaders.publishContent}
               >
@@ -420,7 +444,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               <Button
                 variant="danger"
                 size="sm"
-                onClick={() => setShowRejectModal(true)}
+                onClick={() => { telemetryInteract('reject', { subtype: 'submit' }); setShowRejectModal(true); }}
                 disabled={buttonLoaders.rejectContent}
                 isLoading={buttonLoaders.rejectContent}
               >
@@ -437,7 +461,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => openModal('qualityParams', { action: 'approve' })}
+                onClick={() => { telemetryInteract('approve', { subtype: 'submit' }); openModal('qualityParams', { action: 'approve' }); }}
                 disabled={buttonLoaders.sourcingApproveContent}
                 isLoading={buttonLoaders.sourcingApproveContent}
               >
@@ -448,7 +472,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               <Button
                 variant="danger"
                 size="sm"
-                onClick={() => openModal('qualityParams', { action: 'reject' })}
+                onClick={() => { telemetryInteract('reject', { subtype: 'submit' }); openModal('qualityParams', { action: 'reject' }); }}
                 disabled={buttonLoaders.sourcingRejectContent}
                 isLoading={buttonLoaders.sourcingRejectContent}
               >

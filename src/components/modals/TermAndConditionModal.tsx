@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
 import { useLabels } from '../../hooks/useLabels';
+import { telemetryInteract } from '../../utils/telemetry';
 import styles from './TermAndConditionModal.module.scss';
 
 // -----------------------------------------------------------------------------
@@ -29,7 +30,17 @@ const TermAndConditionModal: React.FC<TermAndConditionModalProps> = ({
       <Button variant="ghost" onClick={onCancel}>
         {L('button_labels.cancel_btn_label', 'Cancel')}
       </Button>
-      <Button variant="primary" disabled={!agreed} onClick={onConfirm}>
+      <Button
+        variant="primary"
+        disabled={!agreed}
+        onClick={() => {
+          telemetryInteract('submit', {
+            subtype: 'submit',
+            extra: { key: 'dialog_id', value: 'accepting_terms_conditions', termAndConditions: agreed },
+          });
+          onConfirm();
+        }}
+      >
         {L('button_labels.submit_collection_btn_label', 'Submit for Review')}
       </Button>
     </>
