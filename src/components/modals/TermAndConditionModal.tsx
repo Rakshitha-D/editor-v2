@@ -16,6 +16,13 @@ export interface TermAndConditionModalProps {
 
 // -----------------------------------------------------------------------------
 // Component
+//
+// NOTE: this component is not imported/rendered anywhere in the app today
+// (confirmed via repo-wide grep) — it predates this PR. The live Terms &
+// Conditions flow is Topbar.tsx's inline ConfirmReviewModal, which is what
+// actually fires the 'submit' INTERACT below. Kept instrumented here as a
+// harmless no-op in case this is ever wired up, but don't assume T&C
+// telemetry comes from this file.
 // -----------------------------------------------------------------------------
 
 const TermAndConditionModal: React.FC<TermAndConditionModalProps> = ({
