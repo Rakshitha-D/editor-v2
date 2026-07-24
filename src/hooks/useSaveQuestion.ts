@@ -1,13 +1,18 @@
 /**
- * useSaveQuestion — creates/updates questions via hierarchy update,
- * matching the old Angular editor exactly.
+ * useSaveQuestion — creates/updates questions as standalone objects
+ * (visibility: "Default"), decoupled from the questionset hierarchy update
+ * (see plan.md). Legacy visibility:"Parent" questions (created before this
+ * flow existed) still go through hierarchy update unchanged.
  *
  * New questions:
- *  1. Generate a proper UUID (replaces temp- node)
- *  2. Build full metadata in old-editor format
- *  3. Store in tree node → saveHierarchy() creates it
+ *  1. Build full metadata in old-editor format, force visibility: "Default"
+ *  2. POST question/v2/create → real do_ id + versionKey
+ *  3. replaceNodeId(temp → do_id); PATCH questionset/v2/add to attach it
+ *  4. structure-only saveHierarchy() (section children/order + root maxScore)
  *
- * Existing questions: PATCH /question/v2/update/{id}
+ * Existing questions:
+ *  - visibility "Default"  → PATCH question/v2/update/:id directly
+ *  - visibility "Parent"   → PATCH questionset/v2/hierarchy/update (unchanged)
  */
 import { useCallback } from 'react';
 import { notifySuccess, notifyError, apiErrorMessage } from '../utils/notify';
@@ -15,8 +20,8 @@ import { label } from '../utils/labels';
 import { useQuestionStore } from '../store/question.store';
 import { useEditorStore } from '../store/editor.store';
 import { useTreeStore } from '../store/tree.store';
-// updateQuestion (direct PATCH) no longer used — old editor creates/updates
-// via hierarchy update for consistent full-metadata delivery.
+import { createQuestion, updateQuestion, readQuestion } from '../api/question';
+import { addQuestionsToSet } from '../api/hierarchy';
 import { useSaveHierarchy } from './useSaveHierarchy';
 import { getUserId } from '../utils/context';
 import { applyContentI18n } from '../utils/i18nSerialize';
@@ -558,30 +563,98 @@ export function useSaveQuestion() {
       const { questionName, questionMeta } = built;
 
       if (isExisting) {
-        // ── Update existing question via hierarchy update ───────────────────
-        // Old editor always sends full metadata in nodesModified for both new
-        // and modified questions — same field set, isNew:false for existing.
-        updateNode(selectedNodeId, { name: questionName, ...questionMeta });
+        const nodeId = selectedNodeId;
+        const node = useTreeStore.getState().getNodeById(nodeId);
+        const cached = useTreeStore.getState().treeCache[nodeId] ?? {};
+        const visibility = (cached.visibility ?? node?.metadata?.visibility) as string | undefined;
+
+        if (visibility === 'Default') {
+          // ── Standalone question — content edits go straight to the question API ──
+          const versionKey = (cached.versionKey ?? node?.metadata?.versionKey) as string | undefined;
+          let freshVersionKey: string;
+          try {
+            freshVersionKey = (await updateQuestion(nodeId, versionKey ?? '', questionMeta)).versionKey;
+          } catch {
+            // Stale versionKey — re-read the current one and retry once.
+            const latest = await readQuestion(nodeId);
+            freshVersionKey = (await updateQuestion(nodeId, (latest.versionKey as string) ?? '', questionMeta)).versionKey;
+          }
+          updateNode(nodeId, { name: questionName, ...questionMeta, visibility: 'Default', versionKey: freshVersionKey });
+
+          // Retry a previously-failed attach (create succeeded, add failed earlier).
+          let attached = cached.attached !== false;
+          if (!attached) {
+            const rootId = useTreeStore.getState().treeData[0]?.identifier;
+            const sectionId = node?.parent;
+            if (rootId && sectionId) {
+              try {
+                await addQuestionsToSet(rootId, sectionId, [nodeId]);
+                attached = true;
+                updateNode(nodeId, { attached: true });
+                // Attach is a structural change — recompute root maxScore / ordering.
+                await saveHierarchy();
+              } catch (attachErr) {
+                console.error('[useSaveQuestion] attach retry failed, will retry on next save:', attachErr);
+              }
+            }
+          }
+
+          notifySuccess(label('messages.success.013', 'Question saved'));
+          setIsDirty(!attached);
+          useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: nodeId, ...questionMeta });
+          return true;
+        }
+
+        // ── Legacy Parent-visibility question — hierarchy update, unchanged ──
+        updateNode(nodeId, { name: questionName, ...questionMeta });
         if (await saveHierarchy()) {
           notifySuccess(label('messages.success.013', 'Question saved'));
           setIsDirty(false);
-          useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: selectedNodeId, ...questionMeta });
+          useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: nodeId, ...questionMeta });
           return true;
         }
         return false;
       } else {
-        // ── New question — build UUID, create via hierarchy ─────────────────
-        const questionUuid = genUuid();
-        // Replace temp- node with UUID, store full metadata, trigger hierarchy save
-        replaceNodeId(selectedNodeId, questionUuid);
-        updateNode(questionUuid, { name: questionName, ...questionMeta });
-        if (await saveHierarchy()) {
-          notifySuccess(label('messages.success.007', 'Question created'));
-          setIsDirty(false);
-          useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: questionUuid, ...questionMeta });
-          return true;
+        // ── New question — create standalone, then attach to its section ──
+        const node = useTreeStore.getState().getNodeById(selectedNodeId);
+        const sectionId = node?.parent;
+        const rootMeta = (useTreeStore.getState().treeData[0]?.metadata ?? {}) as Record<string, unknown>;
+        const rootId = useTreeStore.getState().treeData[0]?.identifier;
+
+        const createMeta: Record<string, unknown> = {
+          ...questionMeta,
+          name: questionName,
+          code: genUuid(),
+          visibility: 'Default',
+          // schemaVersion is backend-managed and rejected on create
+          // (ERROR_RESTRICTED_PROP) — only qumlVersion is accepted here.
+          ...(rootMeta.qumlVersion !== undefined ? { qumlVersion: rootMeta.qumlVersion } : {}),
+        };
+
+        const { identifier, versionKey } = await createQuestion(createMeta);
+        replaceNodeId(selectedNodeId, identifier);
+        updateNode(identifier, { ...createMeta, versionKey, attached: false });
+
+        let attached = false;
+        if (rootId && sectionId) {
+          try {
+            await addQuestionsToSet(rootId, sectionId, [identifier]);
+            attached = true;
+            updateNode(identifier, { attached: true });
+          } catch (attachErr) {
+            console.error('[useSaveQuestion] attach failed, will retry on next save:', attachErr);
+          }
         }
-        return false;
+
+        // Structure-only hierarchy save — cheap now that Default questions
+        // are excluded from nodesModified; keeps section children/order and
+        // root outcomeDeclaration.maxScore in sync for the new question.
+        await saveHierarchy();
+
+        notifySuccess(label('messages.success.007', 'Question created'));
+        setIsDirty(!attached);
+        useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier, ...createMeta });
+        return true;
       }
     } catch (e) {
       console.error('[useSaveQuestion] save failed:', e);

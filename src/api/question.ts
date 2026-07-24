@@ -1,8 +1,42 @@
 import { apiClient } from './client';
 import { URLS } from './urls';
 
-// Question create/update goes through the hierarchy-update flow in
-// useSaveQuestion (like the old editor) — only read/retire live here.
+// Standalone (visibility: "Default") questions are created/updated directly
+// through these APIs (useSaveQuestion) instead of the hierarchy-update flow —
+// see plan.md. Legacy visibility:"Parent" questions still go through
+// questionset/hierarchy/update.
+
+export interface ICreateQuestionResult {
+  identifier: string;
+  versionKey: string;
+}
+
+/** `POST question/v2/create` — metadata must set visibility: "Default". */
+export async function createQuestion(
+  metadata: Record<string, unknown>,
+): Promise<ICreateQuestionResult> {
+  const response = await apiClient.post(URLS.question.create, {
+    request: { question: metadata },
+  });
+  const result = (response.data?.result ?? {}) as Record<string, unknown>;
+  return {
+    identifier: (result.identifier as string) ?? '',
+    versionKey: (result.versionKey as string) ?? '',
+  };
+}
+
+/** `PATCH question/v2/update/:id` — rejects visibility:"Parent" nodes. */
+export async function updateQuestion(
+  questionId: string,
+  versionKey: string,
+  metadata: Record<string, unknown>,
+): Promise<{ versionKey: string }> {
+  const response = await apiClient.patch(`${URLS.question.update}/${questionId}`, {
+    request: { question: { ...metadata, versionKey } },
+  });
+  const result = (response.data?.result ?? {}) as Record<string, unknown>;
+  return { versionKey: (result.versionKey as string) ?? versionKey };
+}
 
 /**
  * Fields requested on question read — the old editor's
