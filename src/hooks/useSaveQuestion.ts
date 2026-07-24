@@ -4,11 +4,15 @@
  * (see plan.md). Legacy visibility:"Parent" questions (created before this
  * flow existed) still go through hierarchy update unchanged.
  *
- * New questions:
+ * New questions ("Create Question" — always standalone, never attached):
  *  1. Build full metadata in old-editor format, force visibility: "Default"
- *  2. POST question/v2/create → real do_ id + versionKey
- *  3. replaceNodeId(temp → do_id); PATCH questionset/v2/add to attach it
- *  4. structure-only saveHierarchy() (section children/order + root maxScore)
+ *  2. POST question/v2/create → real do_ id
+ *  3. POST question/v2/publish — Draft → Live immediately (old AssessmentItem
+ *     items were always usable right away; otherwise the library search,
+ *     which only surfaces status:"Live", wouldn't show it)
+ *  4. Drop the scratch temp- tree node — no questionset/v2/add, no
+ *     hierarchy update. Attaching to a section is a separate, explicit
+ *     action from the Library sidebar.
  *
  * Existing questions:
  *  - visibility "Default"  → PATCH question/v2/update/:id directly
@@ -20,9 +24,10 @@ import { label } from '../utils/labels';
 import { useQuestionStore } from '../store/question.store';
 import { useEditorStore } from '../store/editor.store';
 import { useTreeStore } from '../store/tree.store';
-import { createQuestion, updateQuestion, readQuestion } from '../api/question';
+import { createQuestion, updateQuestion, readQuestion, publishQuestion } from '../api/question';
 import { addQuestionsToSet } from '../api/hierarchy';
 import { useSaveHierarchy } from './useSaveHierarchy';
+import { refreshLibrary } from './useLibrary';
 import { getUserId } from '../utils/context';
 import { applyContentI18n } from '../utils/i18nSerialize';
 import { resolveQuestionType } from '../registry';
@@ -545,7 +550,7 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
 // Hook
 // ---------------------------------------------------------------------------
 export function useSaveQuestion() {
-  const { selectedNodeId, updateNode, replaceNodeId } = useTreeStore();
+  const { selectedNodeId, updateNode } = useTreeStore();
   const { save: saveHierarchy } = useSaveHierarchy();
 
   const save = useCallback(async (): Promise<boolean> => {
@@ -615,11 +620,12 @@ export function useSaveQuestion() {
         }
         return false;
       } else {
-        // ── New question — create standalone, then attach to its section ──
-        const node = useTreeStore.getState().getNodeById(selectedNodeId);
-        const sectionId = node?.parent;
+        // ── New question — "Create Question" always makes a standalone
+        // object, never attached to a section or listed in any hierarchy.
+        // Attaching it to a set is a separate, explicit action (the Library
+        // sidebar's "+" button, which calls questionset/v2/add) — so no
+        // hierarchy update ever runs for creation itself.
         const rootMeta = (useTreeStore.getState().treeData[0]?.metadata ?? {}) as Record<string, unknown>;
-        const rootId = useTreeStore.getState().treeData[0]?.identifier;
 
         const createMeta: Record<string, unknown> = {
           ...questionMeta,
@@ -631,28 +637,37 @@ export function useSaveQuestion() {
           ...(rootMeta.qumlVersion !== undefined ? { qumlVersion: rootMeta.qumlVersion } : {}),
         };
 
-        const { identifier, versionKey } = await createQuestion(createMeta);
-        replaceNodeId(selectedNodeId, identifier);
-        updateNode(identifier, { ...createMeta, versionKey, attached: false });
+        const { identifier } = await createQuestion(createMeta);
 
-        let attached = false;
-        if (rootId && sectionId) {
-          try {
-            await addQuestionsToSet(rootId, sectionId, [identifier]);
-            attached = true;
-            updateNode(identifier, { attached: true });
-          } catch (attachErr) {
-            console.error('[useSaveQuestion] attach failed, will retry on next save:', attachErr);
-          }
+        // Publish immediately — like the old AssessmentItem flow, a newly
+        // created question must be usable right away. Left as Draft it
+        // would be invisible in the library search (status:"Live" only).
+        try {
+          await publishQuestion(identifier);
+        } catch (publishErr) {
+          console.error('[useSaveQuestion] publish failed, question stays Draft:', publishErr);
         }
 
-        // Structure-only hierarchy save — cheap now that Default questions
-        // are excluded from nodesModified; keeps section children/order and
-        // root outcomeDeclaration.maxScore in sync for the new question.
-        await saveHierarchy();
+        // Whatever was selected before "Create Question" was clicked
+        // (stashed by QuestionTypeSelectorModal) — restore it once the
+        // scratch node below is gone, instead of leaving nothing selected.
+        const previousSelectedNodeId = useTreeStore.getState().treeCache[selectedNodeId]
+          ?.previousSelectedNodeId as string | undefined;
+
+        // The temp- node was only a scratch vehicle for the authoring UI —
+        // drop it now that the question exists standalone on the backend.
+        useTreeStore.getState().deleteNode(selectedNodeId);
+
+        if (previousSelectedNodeId && useTreeStore.getState().getNodeById(previousSelectedNodeId)) {
+          useTreeStore.getState().selectNode(previousSelectedNodeId);
+        }
+
+        // The library search only reflects what was on the backend at its
+        // last run — refresh it so this question can show up right away.
+        refreshLibrary();
 
         notifySuccess(label('messages.success.007', 'Question created'));
-        setIsDirty(!attached);
+        setIsDirty(false);
         useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier, ...createMeta });
         return true;
       }
@@ -663,7 +678,7 @@ export function useSaveQuestion() {
     } finally {
       setIsSaving(false);
     }
-  }, [selectedNodeId, updateNode, replaceNodeId, saveHierarchy]);
+  }, [selectedNodeId, updateNode, saveHierarchy]);
 
   return { save };
 }

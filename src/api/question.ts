@@ -39,6 +39,19 @@ export async function updateQuestion(
 }
 
 /**
+ * `POST question/v2/publish` — moves a Draft standalone question to Live.
+ * The library search (composite/v3/search) only surfaces status:"Live"
+ * questions, so a newly-created standalone question needs this right away —
+ * like the old AssessmentItem flow, where every created item was usable
+ * immediately, not left in an invisible Draft state.
+ */
+export async function publishQuestion(questionId: string): Promise<void> {
+  await apiClient.post(`${URLS.question.publish}/${questionId}`, {
+    request: { question: {} },
+  });
+}
+
+/**
  * Fields requested on question read — the old editor's
  * `editor.config.json → readQuestionFields` list, verbatim.
  */
