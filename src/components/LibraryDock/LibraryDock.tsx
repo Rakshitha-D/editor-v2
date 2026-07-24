@@ -1,56 +1,34 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDraggable } from '@dnd-kit/core';
-import {
-  Search,
-  X,
-  ChevronsRight,
-  ArrowUpDown,
-  Plus,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Icon } from '../shared/Icon';
 import { useLibrary } from '../../hooks/useLibrary';
 import { useTreeStore } from '../../store/tree.store';
 import { useEditorStore } from '../../store/editor.store';
+import { useLabels } from '../../hooks/useLabels';
+import { addQuestionsToSet } from '../../api/hierarchy';
 import type { IContent } from '../../types/content';
 import { QUESTION_FILTERS } from '../../types/content';
-import styles from './LibraryDock.module.scss';
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
-/**
- * Derive a short display label (e.g. "MCQ") from a primaryCategory string.
- */
-function getCategoryBadge(primaryCategory?: string): string {
+/** Short type-badge text (e.g. "MCQ") from a primaryCategory string. */
+function typeBadge(primaryCategory?: string): string {
   const cat = (primaryCategory ?? '').toLowerCase();
   if (cat.includes('multiple choice')) return 'MCQ';
-  if (cat.includes('multi select')) return 'MSQ';
   if (cat.includes('subjective')) return 'SA';
   if (cat.includes('fill in') || cat.includes('ftb')) return 'FTB';
   if (cat.includes('match')) return 'MTF';
   if (cat.includes('sequence')) return 'SEQ';
   if (cat.includes('reorder')) return 'REO';
-  if (cat.includes('slider')) return 'Slider';
   return 'Q';
 }
 
-/**
- * CSS class suffix for coloring the type badge.
- */
-function getBadgeVariant(primaryCategory?: string): string {
-  const cat = (primaryCategory ?? '').toLowerCase();
-  if (cat.includes('multiple choice')) return 'mcq';
-  if (cat.includes('multi select')) return 'msq';
-  if (cat.includes('subjective')) return 'sa';
-  if (cat.includes('fill in') || cat.includes('ftb')) return 'ftb';
-  if (cat.includes('match')) return 'mtf';
-  if (cat.includes('sequence')) return 'seq';
-  if (cat.includes('reorder')) return 'reo';
-  if (cat.includes('slider')) return 'slider';
-  return 'default';
+/** "Science · Class 7" caption from subject/gradeLevel arrays. */
+function metaLine(item: IContent): string {
+  const subject = item.subject?.[0];
+  const grade = item.gradeLevel?.[0];
+  return [subject, grade].filter(Boolean).join(' · ');
 }
 
 // =============================================================================
@@ -63,144 +41,50 @@ interface ToastMessage {
   kind: 'success' | 'error';
 }
 
-let _toastIdCounter = 0;
+let toastIdCounter = 0;
 
 function useToast() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
   const show = useCallback((text: string, kind: 'success' | 'error' = 'success') => {
-    const id = ++_toastIdCounter;
+    const id = ++toastIdCounter;
     setToasts((prev) => [...prev, { id, text, kind }]);
     timersRef.current.push(
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2800),
     );
   }, []);
 
-  // Dismiss timers must not set state after unmount.
   useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
 
   return { toasts, show };
 }
 
 // =============================================================================
-// QuestionCard — draggable card for a single IContent item
-// =============================================================================
-
-interface QuestionCardProps {
-  item: IContent;
-  onAdd: (item: IContent) => void;
-}
-
-function QuestionCard({ item, onAdd }: QuestionCardProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: item.identifier,
-    data: { item },
-  });
-
-  const badge = getCategoryBadge(item.primaryCategory);
-  const badgeVariant = getBadgeVariant(item.primaryCategory);
-  const displayName = (item.name ?? '').slice(0, 80);
-
-  const handleAdd = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onAdd(item);
-    },
-    [item, onAdd],
-  );
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={[styles.card, isDragging ? styles.cardDragging : ''].filter(Boolean).join(' ')}
-      {...attributes}
-      {...listeners}
-    >
-      {/* Card header — type badge + add button */}
-      <div className={styles.cardHeader}>
-        <span className={[styles.typeBadge, styles[`typeBadge--${badgeVariant}`]].join(' ')}>
-          {badge}
-        </span>
-        <button
-          className={styles.addBtn}
-          onClick={handleAdd}
-          title="Add to question set"
-          aria-label={`Add question: ${item.name}`}
-          // Prevent drag from triggering on button click
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <Plus size={14} />
-        </button>
-      </div>
-
-      {/* Question name */}
-      <p className={styles.cardName}>{displayName || 'Untitled Question'}</p>
-
-      {/* Card footer — difficulty badge if present */}
-      {(item as IContent & { difficultyLevel?: string }).difficultyLevel && (
-        <div className={styles.cardFooter}>
-          <span className={styles.diffBadge}>
-            {(item as IContent & { difficultyLevel?: string }).difficultyLevel}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =============================================================================
-// LibraryDock Props
-// =============================================================================
-
-interface LibraryDockProps {
-  /** Called when the user clicks the collapse button */
-  onCollapse: () => void;
-}
-
-// =============================================================================
 // LibraryDock
 // =============================================================================
 
-export function LibraryDock({ onCollapse }: LibraryDockProps) {
-  // ── Hook: library data + actions ─────────────────────────────────────────
-  const {
-    content,
-    isLoading,
-    totalCount,
-    activeFilter,
-    searchQuery,
-    sortAZ,
-    hasMore,
-    search,
-    setFilter,
-    applyAdvancedFilters,
-    toggleSort,
-    loadMore,
-  } = useLibrary();
+interface LibraryDockProps {
+  onCollapse: () => void;
+}
 
-  // ── Store: selected node for adding questions ─────────────────────────────
+export function LibraryDock({ onCollapse }: LibraryDockProps) {
+  const L = useLabels();
+  const { content, isLoading, activeFilter, searchQuery, hasMore, search, setFilter, loadMore } =
+    useLibrary();
+
   const selectedNodeId = useTreeStore((s) => s.selectedNodeId);
   const addExistingQuestion = useTreeStore((s) => s.addExistingQuestion);
   const getNodeById = useTreeStore((s) => s.getNodeById);
+  const updateNode = useTreeStore((s) => s.updateNode);
   const editorMode = useEditorStore((s) => s.editorMode);
+  const isReadOnly = editorMode !== 'edit';
 
-  // ── Store: dynamic search form config from category definition ────────────
-  const searchFormConfig = useEditorStore((s) => s.searchFormConfig);
-
-  // ── Toast ─────────────────────────────────────────────────────────────────
   const { toasts, show: showToast } = useToast();
 
-  // ── Search input local state (controlled) ─────────────────────────────────
   const [inputValue, setInputValue] = useState(searchQuery);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  // A pending debounced search must not fire into the library store after
-  // the dock unmounts.
   useEffect(() => () => clearTimeout(debounceRef.current), []);
-
-  // ── Advanced filters local state ──────────────────────────────────────────
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [advancedFilters, setAdvancedFiltersLocal] = useState<Record<string, string>>({});
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,125 +101,100 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
     search('');
   }, [search]);
 
-  // ── Advanced filter change handler ────────────────────────────────────────
-  const handleAdvancedFilterChange = useCallback(
-    (code: string, value: string) => {
-      const updated = { ...advancedFilters, [code]: value };
-      // Remove empty values
-      if (!value) delete updated[code];
-      setAdvancedFiltersLocal(updated);
-
-      // Build LibraryFilters-compatible object from the current selections
-      const libraryFilters: Record<string, string[]> = {};
-      for (const [key, val] of Object.entries(updated)) {
-        if (val) libraryFilters[key] = [val];
-      }
-      applyAdvancedFilters(libraryFilters);
-    },
-    [advancedFilters, applyAdvancedFilters],
-  );
-
-  const handleClearAdvancedFilters = useCallback(() => {
-    setAdvancedFiltersLocal({});
-    applyAdvancedFilters({});
-  }, [applyAdvancedFilters]);
-
-  // ── Derive which searchFormConfig fields should render as dropdowns ────────
-  const selectFields = (searchFormConfig ?? []).filter(
-    (f) =>
-      (f.inputType === 'select' || f.inputType === 'multiselect') &&
-      ((Array.isArray(f.enum) && f.enum.length > 0) ||
-        (Array.isArray(f.range) && (f.range as unknown[]).length > 0)),
-  );
-
-  const hasActiveAdvancedFilters = Object.keys(advancedFilters).length > 0;
-
-  // ── Add question to tree ──────────────────────────────────────────────────
   const handleAdd = useCallback(
-    (item: IContent) => {
-      // Resolve the target parent node: must be a folder/section, not a question leaf
+    async (item: IContent) => {
+      // A question can only be added into a section, not another question.
       let targetId = selectedNodeId;
       if (targetId) {
         const node = getNodeById(targetId);
-        if (node && !node.isFolder) {
-          // Use the parent section instead
-          targetId = node.parent ?? null;
-        }
+        if (node && !node.isFolder) targetId = node.parent ?? null;
       }
-
       if (!targetId) {
-        showToast('Select a section to add the question to', 'error');
+        showToast(L('messages.error.selectSection', 'Select a section to add the question to'), 'error');
         return;
       }
 
-      // Link the existing question into the section (old-editor semantics) —
-      // its do_ id joins the hierarchy children; nothing new is created.
+      // Link it into the local tree (old-editor semantics — nothing new is
+      // created, the do_ id joins the hierarchy as-is).
       const result = addExistingQuestion(targetId, item as unknown as { identifier: string } & Record<string, unknown>);
       if (result === 'exists') {
-        showToast('This question is already in the set', 'error');
-      } else if (!result) {
-        showToast('Cannot add here — maximum depth reached', 'error');
-      } else {
-        showToast(`"${(item.name ?? 'Question').slice(0, 40)}" added`, 'success');
+        showToast(L('messages.error.alreadyInSet', 'This question is already in the set'), 'error');
+        return;
       }
+      if (!result) {
+        showToast(L('messages.error.maxDepth', 'Cannot add here — maximum depth reached'), 'error');
+        return;
+      }
+
+      const displayName = (item.name ?? 'Question').slice(0, 40);
+
+      // Standalone (Default-visibility) questions must be attached via
+      // questionset/v2/add — merely listing the id in the section's local
+      // children is not enough to persist the link server-side. Skip when
+      // the target section itself hasn't been saved yet (temp- id); the
+      // next hierarchy save creates the section, and this question can be
+      // re-added once it exists.
+      if (!targetId.startsWith('temp-')) {
+        const rootId = useTreeStore.getState().treeData[0]?.identifier;
+        if (rootId) {
+          try {
+            await addQuestionsToSet(rootId, targetId, [result]);
+            updateNode(result, { visibility: 'Default', attached: true });
+          } catch (err) {
+            console.error('[LibraryDock] attach failed, will retry on next save:', err);
+            updateNode(result, { visibility: 'Default', attached: false });
+          }
+        }
+      }
+
+      showToast(L('messages.success.questionAdded', `"${displayName}" added`), 'success');
     },
-    [selectedNodeId, getNodeById, addExistingQuestion, showToast],
+    [selectedNodeId, getNodeById, addExistingQuestion, updateNode, showToast, L],
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  const isReadOnly = editorMode !== 'edit';
-
   return (
-    <div className={styles.dock} aria-label="Question Bank">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className={styles.header}>
-        <span className={styles.headerTitle}>Question Bank</span>
+    <>
+      <div className="ce-lib-head">
+        <Icon name="library" size={18} className="ico" />
+        <span className="lbl">{L('ui.questionLibrary', 'Question Library')}</span>
         <button
-          className={styles.collapseBtn}
+          title={L('ui.collapse', 'Collapse')}
           onClick={onCollapse}
-          title="Collapse library"
-          aria-label="Collapse library panel"
+          aria-label={L('ui.collapseLibraryPanel', 'Collapse library panel')}
         >
-          <ChevronsRight size={16} />
+          <Icon name="panel-right" size={17} />
         </button>
       </div>
 
-      {/* ── Search bar ─────────────────────────────────────────────────────── */}
-      <div className={styles.searchRow}>
-        <div className={styles.searchInput}>
-          <Search size={14} className={styles.searchIcon} aria-hidden="true" />
+      <div className="ce-lib-search">
+        <div className="ce-lib-search-box">
+          <Icon name="search" size={16} />
           <input
-            className={styles.input}
             type="search"
-            placeholder="Search questions…"
+            placeholder={L('ui.searchLibrary', 'Search library…')}
             value={inputValue}
             onChange={handleSearchChange}
-            aria-label="Search questions"
+            aria-label={L('ui.searchLibrary', 'Search library')}
           />
           {inputValue && (
             <button
-              className={styles.clearBtn}
+              type="button"
+              className="ce-lib-search-clear"
               onClick={handleClearSearch}
-              aria-label="Clear search"
-              title="Clear search"
+              aria-label={L('ui.clearSearch', 'Clear search')}
             >
-              <X size={13} />
+              <Icon name="x" size={12} />
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Filter chips ───────────────────────────────────────────────────── */}
-      <div className={styles.filterRow} aria-label="Filter by question type">
+      <div className="ce-lib-filters" aria-label={L('ui.filterByQuestionType', 'Filter by question type')}>
         {QUESTION_FILTERS.map((f) => (
           <button
             key={f.value}
-            className={[
-              styles.filterChip,
-              activeFilter === f.value ? styles.filterChipActive : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            type="button"
+            className={`ce-lib-chip${activeFilter === f.value ? ' on' : ''}`}
             onClick={() => setFilter(f.value)}
             aria-pressed={activeFilter === f.value}
           >
@@ -344,157 +203,66 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
         ))}
       </div>
 
-      {/* ── Advanced Filters (dynamic from searchFormConfig) ───────────────── */}
-      {selectFields.length > 0 && (
-        <div className={styles.advancedFiltersSection}>
-          <button
-            className={[
-              styles.advancedFiltersToggle,
-              hasActiveAdvancedFilters ? styles.advancedFiltersToggleActive : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onClick={() => setAdvancedOpen((prev) => !prev)}
-            aria-expanded={advancedOpen}
-            aria-controls="advanced-filters-panel"
-          >
-            <span>Advanced Filters</span>
-            {hasActiveAdvancedFilters && (
-              <span className={styles.advancedFiltersBadge}>
-                {Object.keys(advancedFilters).length}
-              </span>
-            )}
-            {advancedOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
-          </button>
-
-          {advancedOpen && (
-            <div
-              id="advanced-filters-panel"
-              className={styles.advancedFiltersPanel}
-              role="group"
-              aria-label="Advanced filter options"
-            >
-              {selectFields.map((field) => {
-                const options: string[] = Array.isArray(field.enum)
-                  ? field.enum
-                  : Array.isArray(field.range)
-                  ? (field.range as string[])
-                  : [];
-                return (
-                  <div key={field.code} className={styles.advancedFilterField}>
-                    <label
-                      className={styles.advancedFilterLabel}
-                      htmlFor={`adv-filter-${field.code}`}
-                    >
-                      {field.label}
-                    </label>
-                    <select
-                      id={`adv-filter-${field.code}`}
-                      className={styles.advancedFilterSelect}
-                      value={advancedFilters[field.code] ?? ''}
-                      onChange={(e) => handleAdvancedFilterChange(field.code, e.target.value)}
-                      aria-label={`Filter by ${field.label}`}
-                    >
-                      <option value="">All</option>
-                      {options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-
-              {hasActiveAdvancedFilters && (
-                <button
-                  className={styles.advancedFiltersClear}
-                  onClick={handleClearAdvancedFilters}
-                  aria-label="Clear all advanced filters"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Sort + count row ───────────────────────────────────────────────── */}
-      <div className={styles.sortRow}>
-        <span className={styles.countLabel} aria-live="polite">
-          {totalCount} question{totalCount !== 1 ? 's' : ''}
-        </span>
-        <button
-          className={styles.sortBtn}
-          onClick={toggleSort}
-          title={sortAZ ? 'Switch to recent first' : 'Sort A–Z'}
-          aria-pressed={sortAZ}
-        >
-          <ArrowUpDown size={12} aria-hidden="true" />
-          <span>{sortAZ ? 'A–Z' : 'Recent'}</span>
-        </button>
-      </div>
-
-      {/* ── Question list ──────────────────────────────────────────────────── */}
-      <div className={styles.list} role="list" aria-label="Question list">
+      <div className="ce-lib-scroll" role="list" aria-label={L('ui.questionList', 'Question list')}>
         {isLoading && content.length === 0 ? (
-          <div className={styles.loadingState} role="status">
-            <Loader2 size={20} className={styles.spinner} aria-hidden="true" />
-            <span>Loading questions…</span>
+          <div className="ce-lib-loading" role="status">
+            <span className="ce-spinner" style={{ width: 22, height: 22, borderWidth: 2 }} aria-hidden="true" />
+            <span>{L('ui.loadingQuestions', 'Loading questions…')}</span>
           </div>
         ) : content.length === 0 ? (
-          <p className={styles.emptyState}>
-            No questions found. Try a different search.
+          <p className="ce-lib-empty">
+            {L('ui.noQuestionsFound', 'No questions found. Try a different search.')}
           </p>
         ) : (
           <>
             {content.map((item) => (
-              <div key={item.identifier} role="listitem">
-                <QuestionCard
-                  item={item}
-                  onAdd={isReadOnly ? () => {} : handleAdd}
-                />
+              <div key={item.identifier} className="ce-lib-item" role="listitem">
+                <span className="ico"><Icon name="help" size={17} /></span>
+                <div className="body">
+                  <p className="nm">{item.name || L('ui.untitledQuestion', 'Untitled Question')}</p>
+                  <div className="meta">
+                    <span className="type-pill">{typeBadge(item.primaryCategory)}</span>
+                    {metaLine(item) && <span className="sub">{metaLine(item)}</span>}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="add-btn"
+                  disabled={isReadOnly}
+                  onClick={() => void handleAdd(item)}
+                  title={L('ui.addToQuestionSet', 'Add to question set')}
+                  aria-label={`${L('ui.addToQuestionSet', 'Add to question set')}: ${item.name}`}
+                >
+                  <Icon name="plus" size={15} />
+                </button>
               </div>
             ))}
 
-            {/* Load more */}
             {hasMore && (
               <button
-                className={styles.loadMoreBtn}
+                type="button"
+                className="ce-lib-loadmore"
                 onClick={loadMore}
                 disabled={isLoading}
-                aria-label="Load more questions"
+                aria-label={L('ui.loadMoreQuestions', 'Load more questions')}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 size={13} className={styles.spinner} aria-hidden="true" />
-                    Loading…
-                  </>
-                ) : (
-                  'Load more'
-                )}
+                {isLoading ? L('ui.loading', 'Loading…') : L('ui.loadMore', 'Load more')}
               </button>
             )}
           </>
         )}
       </div>
 
-      {/* ── Toast container ────────────────────────────────────────────────── */}
       {toasts.length > 0 && (
-        <div className={styles.toastContainer} aria-live="assertive" aria-atomic="true">
+        <div className="ce-lib-toast" aria-live="assertive" aria-atomic="true">
           {toasts.map((t) => (
-            <div
-              key={t.id}
-              className={[styles.toast, styles[`toast--${t.kind}`]].join(' ')}
-              role="alert"
-            >
+            <div key={t.id} className={`t ${t.kind}`} role="alert">
               {t.text}
             </div>
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
