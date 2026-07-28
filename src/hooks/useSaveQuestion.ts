@@ -15,7 +15,10 @@
  *     action from the Library sidebar.
  *
  * Existing questions:
- *  - visibility "Default"  → PATCH question/v2/update/:id directly
+ *  - visibility "Default"  → PATCH question/v2/update/:id, then
+ *     POST question/v2/publish (an edit to a Live question lands on a
+ *     Draft/image copy — republishing immediately keeps the edit visible
+ *     instead of silently sitting unpublished)
  *  - visibility "Parent"   → PATCH questionset/v2/hierarchy/update (unchanged)
  */
 import { useCallback } from 'react';
@@ -25,7 +28,6 @@ import { useQuestionStore } from '../store/question.store';
 import { useEditorStore } from '../store/editor.store';
 import { useTreeStore } from '../store/tree.store';
 import { createQuestion, updateQuestion, readQuestion, publishQuestion } from '../api/question';
-import { addQuestionsToSet } from '../api/hierarchy';
 import { useSaveHierarchy } from './useSaveHierarchy';
 import { refreshLibrary } from './useLibrary';
 import { getUserId } from '../utils/context';
@@ -586,26 +588,17 @@ export function useSaveQuestion() {
           }
           updateNode(nodeId, { name: questionName, ...questionMeta, visibility: 'Default', versionKey: freshVersionKey });
 
-          // Retry a previously-failed attach (create succeeded, add failed earlier).
-          let attached = cached.attached !== false;
-          if (!attached) {
-            const rootId = useTreeStore.getState().treeData[0]?.identifier;
-            const sectionId = node?.parent;
-            if (rootId && sectionId) {
-              try {
-                await addQuestionsToSet(rootId, sectionId, [nodeId]);
-                attached = true;
-                updateNode(nodeId, { attached: true });
-                // Attach is a structural change — recompute root maxScore / ordering.
-                await saveHierarchy();
-              } catch (attachErr) {
-                console.error('[useSaveQuestion] attach retry failed, will retry on next save:', attachErr);
-              }
-            }
+          // Republish immediately — an edit to a Live question lands on a
+          // Draft/image copy (plan.md); without this it stays saved but
+          // invisible until something else republishes it.
+          try {
+            await publishQuestion(nodeId);
+          } catch (publishErr) {
+            console.error('[useSaveQuestion] republish failed, edit stays unpublished:', publishErr);
           }
 
           notifySuccess(label('messages.success.013', 'Question saved'));
-          setIsDirty(!attached);
+          setIsDirty(false);
           useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: nodeId, ...questionMeta });
           return true;
         }
@@ -648,6 +641,14 @@ export function useSaveQuestion() {
           console.error('[useSaveQuestion] publish failed, question stays Draft:', publishErr);
         }
 
+        notifySuccess(label('messages.success.007', 'Question created'));
+
+        // Stay on the question editor a moment before navigating back — the
+        // search index behind the library doesn't reflect a just-created/
+        // published question immediately, so this also gives it time to
+        // catch up before the refresh below.
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
         // Whatever was selected before "Create Question" was clicked
         // (stashed by QuestionTypeSelectorModal) — restore it once the
         // scratch node below is gone, instead of leaving nothing selected.
@@ -662,11 +663,8 @@ export function useSaveQuestion() {
           useTreeStore.getState().selectNode(previousSelectedNodeId);
         }
 
-        // The library search only reflects what was on the backend at its
-        // last run — refresh it so this question can show up right away.
         refreshLibrary();
 
-        notifySuccess(label('messages.success.007', 'Question created'));
         setIsDirty(false);
         useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier, ...createMeta });
         return true;
