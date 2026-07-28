@@ -440,6 +440,7 @@
     "sortAZ": "الترتيب أبجديًا (أ–ي)",
     "sortByRecent": "التبديل إلى الأحدث أولاً",
     "sortAZLabel": "أ–ي",
-    "sortRecentLabel": "الأحدث"
+    "sortRecentLabel": "الأحدث",
+    "hasRequiredFields": "يحتوي على حقول مطلوبة"
   }
 }

@@ -431,7 +431,8 @@
     "sortAZ": "Ordenar de A a Z",
     "sortByRecent": "Mudar para mais recentes primeiro",
     "sortAZLabel": "A–Z",
-    "sortRecentLabel": "Recentes"
+    "sortRecentLabel": "Recentes",
+    "hasRequiredFields": "Contém campos obrigatórios"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Pergunta de Múltipla Escolha",

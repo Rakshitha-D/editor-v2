@@ -449,6 +449,7 @@
     "sortAZ": "Sort A–Z",
     "sortByRecent": "Switch to most recent first",
     "sortAZLabel": "A–Z",
-    "sortRecentLabel": "Recent"
+    "sortRecentLabel": "Recent",
+    "hasRequiredFields": "Has required fields"
   }
 }
