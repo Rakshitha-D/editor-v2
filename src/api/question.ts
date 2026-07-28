@@ -25,14 +25,24 @@ export async function createQuestion(
   };
 }
 
+// Identity/system fields the backend locks once a question is created —
+// question/v5/update's RequestUtil.restrictProperties rejects the whole
+// request (ERROR_RESTRICTED_PROP) if any of these are present, even when
+// the value matches what's already stored. Some of these (e.g. mimeType)
+// are legitimately part of create's payload but become immutable after.
+const UPDATE_RESTRICTED_PROPS = ['visibility', 'code', 'status', 'mimeType', 'qumlVersion', 'schemaVersion'];
+
 /** `PATCH question/v2/update/:id` — rejects visibility:"Parent" nodes. */
 export async function updateQuestion(
   questionId: string,
   versionKey: string,
   metadata: Record<string, unknown>,
 ): Promise<{ versionKey: string }> {
+  const question: Record<string, unknown> = { ...metadata, versionKey };
+  for (const key of UPDATE_RESTRICTED_PROPS) delete question[key];
+
   const response = await apiClient.patch(`${URLS.question.update}/${questionId}`, {
-    request: { question: { ...metadata, versionKey } },
+    request: { question },
   });
   const result = (response.data?.result ?? {}) as Record<string, unknown>;
   return { versionKey: (result.versionKey as string) ?? versionKey };
@@ -71,8 +81,12 @@ export async function readQuestion(
   extraFields: string[] = [],
 ): Promise<Record<string, unknown>> {
   const fields = [READ_QUESTION_FIELDS, ...extraFields, 'isReviewModificationAllowed'].join(',');
+  // mode: 'edit' — if a Draft .img (working-copy) node already exists for a
+  // published question, its versionKey is the one that must be sent back on
+  // update (versionCheckMode is on); a plain read would return the Live
+  // node's versionKey instead, which update would then reject as stale.
   const response = await apiClient.get(`${URLS.question.read}/${questionId}`, {
-    params: { fields },
+    params: { mode: 'edit', fields },
   });
   return (response.data?.result?.question ?? {}) as Record<string, unknown>;
 }
