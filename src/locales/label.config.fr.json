@@ -427,7 +427,11 @@
     "loading": "Chargement…",
     "loadMore": "Charger plus",
     "filterAll": "Tous",
-    "filterMatch": "Correspondance"
+    "filterMatch": "Correspondance",
+    "sortAZ": "Trier de A à Z",
+    "sortByRecent": "Passer aux plus récentes",
+    "sortAZLabel": "A–Z",
+    "sortRecentLabel": "Récentes"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Question à choix multiple",

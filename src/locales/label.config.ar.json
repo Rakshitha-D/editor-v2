@@ -436,6 +436,10 @@
     "loading": "جارٍ التحميل…",
     "loadMore": "تحميل المزيد",
     "filterAll": "الكل",
-    "filterMatch": "مطابقة"
+    "filterMatch": "مطابقة",
+    "sortAZ": "الترتيب أبجديًا (أ–ي)",
+    "sortByRecent": "التبديل إلى الأحدث أولاً",
+    "sortAZLabel": "أ–ي",
+    "sortRecentLabel": "الأحدث"
   }
 }

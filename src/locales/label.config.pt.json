@@ -427,7 +427,11 @@
     "loading": "Carregando…",
     "loadMore": "Carregar mais",
     "filterAll": "Todos",
-    "filterMatch": "Associação"
+    "filterMatch": "Associação",
+    "sortAZ": "Ordenar de A a Z",
+    "sortByRecent": "Mudar para mais recentes primeiro",
+    "sortAZLabel": "A–Z",
+    "sortRecentLabel": "Recentes"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Pergunta de Múltipla Escolha",

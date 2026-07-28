@@ -165,9 +165,9 @@ aside.ce-lib { max-width: none; margin: 0; }
 .ce-lib-head button { flex: none; width: 32px; height: 32px; border-radius: var(--sbx-radius-lg); border: none; background: transparent; color: var(--sb-text-muted); cursor: pointer; display: grid; place-items: center; }
 .ce-lib-head button:hover { background: rgba(20,14,8,.05); color: var(--ink); }
 
-.ce-lib-search { flex: none; padding: 0 14px 10px; }
+.ce-lib-search { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px 10px; }
 .ce-lib-search-box {
-  display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px;
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px;
   border: 1px solid var(--sb-border); border-radius: var(--sbx-radius-xl); background: #fff;
   transition: border-color .14s, box-shadow .14s;
 }
@@ -184,6 +184,15 @@ aside.ce-lib { max-width: none; margin: 0; }
   width: 20px; height: 20px; display: grid; place-items: center; color: var(--sb-text-muted); cursor: pointer;
 }
 .ce-lib-search-clear:hover { background: var(--sb-border-soft); color: var(--ink); }
+
+.ce-lib-sort {
+  flex: none; display: inline-flex; align-items: center; gap: 5px;
+  height: 42px; padding: 0 12px; border: 1px solid var(--sb-border); border-radius: var(--sbx-radius-xl);
+  background: #fff; color: var(--sb-text-2); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: all .14s;
+}
+.ce-lib-sort:hover { border-color: var(--accent); color: var(--accent-deep); }
+.ce-lib-sort[aria-pressed='true'] { color: var(--accent-deep); border-color: var(--accent); background: var(--accent-soft); }
 
 .ce-lib-filters { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 12px; }
 .ce-lib-chip {

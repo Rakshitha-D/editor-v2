@@ -78,7 +78,7 @@ interface LibraryDockProps {
 
 export function LibraryDock({ onCollapse }: LibraryDockProps) {
   const L = useLabels();
-  const { content, isLoading, activeFilter, searchQuery, hasMore, search, setFilter, loadMore } =
+  const { content, isLoading, activeFilter, searchQuery, sortAZ, hasMore, search, setFilter, toggleSort, loadMore } =
     useLibrary();
 
   const selectedNodeId = useTreeStore((s) => s.selectedNodeId);
@@ -226,6 +226,15 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
             </button>
           )}
         </div>
+        <button
+          type="button"
+          className="ce-lib-sort"
+          onClick={toggleSort}
+          aria-pressed={sortAZ}
+          title={sortAZ ? L('ui.sortByRecent', 'Switch to most recent first') : L('ui.sortAZ', 'Sort A–Z')}
+        >
+          <span>{sortAZ ? L('ui.sortAZLabel', 'A–Z') : L('ui.sortRecentLabel', 'Recent')}</span>
+        </button>
       </div>
 
       <div className="ce-lib-filters" aria-label={L('ui.filterByQuestionType', 'Filter by question type')}>
