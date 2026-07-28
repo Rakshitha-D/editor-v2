@@ -5,6 +5,8 @@ import { useTreeStore } from '../../store/tree.store';
 import { useEditorStore } from '../../store/editor.store';
 import { useLabels } from '../../hooks/useLabels';
 import { addQuestionsToSet } from '../../api/hierarchy';
+import { detectNodeKind } from '../../utils/nodeKind';
+import { resolveByCategory } from '../../registry';
 import type { IContent } from '../../types/content';
 import { QUESTION_FILTERS } from '../../types/content';
 
@@ -21,7 +23,13 @@ function typeBadge(primaryCategory?: string): string {
   if (cat.includes('match')) return 'MTF';
   if (cat.includes('sequence')) return 'SEQ';
   if (cat.includes('reorder')) return 'REO';
+  if (cat.includes('boolean')) return 'BOOL';
   return 'Q';
+}
+
+/** Same per-type icon the "Create Question" type picker uses (registry). */
+function typeIcon(primaryCategory?: string): string {
+  return resolveByCategory(primaryCategory)?.icon ?? 'help';
 }
 
 /** "Science · Class 7" caption from subject/gradeLevel arrays. */
@@ -101,27 +109,58 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
     search('');
   }, [search]);
 
+  // Same single-question preview QuestionEditor's own "Preview" button uses
+  // (QumlPlayer via the global showPreview/previewQuestionId flag) — works
+  // for a library question even though it isn't part of the open
+  // questionset's tree; QumlPlayer falls back to fetching it directly.
+  const handlePreview = useCallback((item: IContent) => {
+    useEditorStore.getState().setShowPreview(true, item.identifier);
+  }, []);
+
   const handleAdd = useCallback(
     async (item: IContent) => {
-      // A question can only be added into a section, not another question.
-      let targetId = selectedNodeId;
+      // A question can only be attached to a section — never directly under
+      // the questionset root (questionset/v2/add requires collectionId to
+      // be an existing section child of root, not the root itself). isFolder
+      // is true for BOTH root and section, so it can't distinguish them —
+      // use detectNodeKind instead.
+      let targetId: string | null = selectedNodeId;
       if (targetId) {
         const node = getNodeById(targetId);
-        if (node && !node.isFolder) targetId = node.parent ?? null;
+        const kind = node ? detectNodeKind(node) : null;
+        if (kind === 'question') targetId = node!.parent ?? null;
+        else if (kind === 'root') targetId = null;
       }
       if (!targetId) {
         showToast(L('messages.error.selectSection', 'Select a section to add the question to'), 'error');
         return;
       }
 
-      // Link it into the local tree (old-editor semantics — nothing new is
-      // created, the do_ id joins the hierarchy as-is).
-      const result = addExistingQuestion(targetId, item as unknown as { identifier: string } & Record<string, unknown>);
-      if (result === 'exists') {
+      // The section itself must exist on the backend before anything can be
+      // attached to it — questionset/v2/add needs a real collectionId.
+      // Refuse up front rather than staging the question locally with
+      // nothing to actually attach it to; that only ever looked "added"
+      // without ever getting persisted unless the user happened to reopen
+      // this exact question later (which is what retried the attach).
+      if (targetId.startsWith('temp-')) {
+        showToast(
+          L('messages.error.sectionNotSaved', 'Save this section before adding questions to it'),
+          'error',
+        );
+        return;
+      }
+
+      // Validate BEFORE calling the attach API or touching the tree at all —
+      // nothing should appear in the outline, even briefly, until the
+      // backend has actually confirmed the attach. (Inserting optimistically
+      // and rolling back on failure works, but flashes the question into
+      // the tree for the duration of the network call.)
+      const check = useTreeStore.getState().canAddExistingQuestion(targetId, item.identifier);
+      if (check === 'exists') {
         showToast(L('messages.error.alreadyInSet', 'This question is already in the set'), 'error');
         return;
       }
-      if (!result) {
+      if (check === 'maxDepth') {
         showToast(L('messages.error.maxDepth', 'Cannot add here — maximum depth reached'), 'error');
         return;
       }
@@ -129,24 +168,21 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
       const displayName = (item.name ?? 'Question').slice(0, 40);
 
       // Standalone (Default-visibility) questions must be attached via
-      // questionset/v2/add — merely listing the id in the section's local
-      // children is not enough to persist the link server-side. Skip when
-      // the target section itself hasn't been saved yet (temp- id); the
-      // next hierarchy save creates the section, and this question can be
-      // re-added once it exists.
-      if (!targetId.startsWith('temp-')) {
-        const rootId = useTreeStore.getState().treeData[0]?.identifier;
-        if (rootId) {
-          try {
-            await addQuestionsToSet(rootId, targetId, [result]);
-            updateNode(result, { visibility: 'Default', attached: true });
-          } catch (err) {
-            console.error('[LibraryDock] attach failed, will retry on next save:', err);
-            updateNode(result, { visibility: 'Default', attached: false });
-          }
-        }
+      // questionset/v2/add before they exist in this section at all.
+      const rootId = useTreeStore.getState().treeData[0]?.identifier;
+      try {
+        if (!rootId) throw new Error('No root questionset id');
+        await addQuestionsToSet(rootId, targetId, [item.identifier]);
+      } catch (err) {
+        console.error('[LibraryDock] attach failed:', err);
+        showToast(L('messages.error.attachFailed', 'Could not add this question — please try again'), 'error');
+        return;
       }
 
+      // Attach confirmed — now link it into the local tree (old-editor
+      // semantics — nothing new is created, the do_ id joins as-is).
+      const result = addExistingQuestion(targetId, item as unknown as { identifier: string } & Record<string, unknown>);
+      updateNode(result, { visibility: 'Default' });
       showToast(L('messages.success.questionAdded', `"${displayName}" added`), 'success');
     },
     [selectedNodeId, getNodeById, addExistingQuestion, updateNode, showToast, L],
@@ -216,8 +252,19 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
         ) : (
           <>
             {content.map((item) => (
-              <div key={item.identifier} className="ce-lib-item" role="listitem">
-                <span className="ico"><Icon name="help" size={17} /></span>
+              <div
+                key={item.identifier}
+                className="ce-lib-item"
+                role="listitem"
+                tabIndex={0}
+                onClick={() => handlePreview(item)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handlePreview(item); }
+                }}
+                title={L('ui.previewThisQuestion', 'Preview this question')}
+                aria-label={`${L('ui.previewThisQuestion', 'Preview this question')}: ${item.name}`}
+              >
+                <span className="ico"><Icon name={typeIcon(item.primaryCategory)} size={17} /></span>
                 <div className="body">
                   <p className="nm">{item.name || L('ui.untitledQuestion', 'Untitled Question')}</p>
                   <div className="meta">
@@ -229,7 +276,7 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
                   type="button"
                   className="add-btn"
                   disabled={isReadOnly}
-                  onClick={() => void handleAdd(item)}
+                  onClick={(e) => { e.stopPropagation(); void handleAdd(item); }}
                   title={L('ui.addToQuestionSet', 'Add to question set')}
                   aria-label={`${L('ui.addToQuestionSet', 'Add to question set')}: ${item.name}`}
                 >

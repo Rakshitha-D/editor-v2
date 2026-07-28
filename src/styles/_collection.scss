@@ -143,7 +143,8 @@
 .ce-tree-foot button {
   flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   height: 42px; border-radius: var(--sbx-radius-xl); border: 1px solid var(--sb-border); background: #fff;
-  cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--sb-text-2); transition: all .14s;
+  cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--sb-text-2); transition: all .14s;
+  white-space: nowrap;
 }
 .ce-tree-foot button:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
 .ce-tree-foot button svg { color: var(--accent); }
@@ -198,8 +199,10 @@ aside.ce-lib { max-width: none; margin: 0; }
 .ce-lib-item {
   display: flex; align-items: center; gap: 12px; padding: 12px;
   border: 1px solid var(--sb-border-soft); border-radius: var(--sbx-radius-xl);
-  background: #fff; margin-bottom: 10px;
+  background: #fff; margin-bottom: 10px; cursor: pointer; transition: border-color .14s, background .14s;
 }
+.ce-lib-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+.ce-lib-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ce-lib-item .ico {
   flex: none; width: 36px; height: 36px; border-radius: 50%;
   background: var(--accent-soft); color: var(--accent-deep); display: grid; place-items: center;

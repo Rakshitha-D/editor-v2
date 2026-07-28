@@ -32,4 +32,5 @@ export const QUESTION_FILTERS: ReadonlyArray<{ label: string; value: string }> =
   { label: 'Match', value: 'Match The Following Question' },
   { label: 'Sequence', value: 'Sequence Question' },
   { label: 'Reorder', value: 'Reorder Question' },
+  { label: 'True/False', value: 'Boolean Question' },
 ];
