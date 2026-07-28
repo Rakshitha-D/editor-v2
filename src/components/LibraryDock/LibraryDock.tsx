@@ -183,7 +183,10 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
       // semantics — nothing new is created, the do_ id joins as-is).
       const result = addExistingQuestion(targetId, item as unknown as { identifier: string } & Record<string, unknown>);
       updateNode(result, { visibility: 'Default' });
-      showToast(L('messages.success.questionAdded', `"${displayName}" added`), 'success');
+      // {NAME} is a substitution placeholder, not literal text — label() has
+      // no interpolation of its own, so both the config value and this
+      // fallback use the same placeholder and get it swapped in here.
+      showToast(L('messages.success.questionAdded', '"{NAME}" added').replace('{NAME}', displayName), 'success');
     },
     [selectedNodeId, getNodeById, addExistingQuestion, updateNode, showToast, L],
   );

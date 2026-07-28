@@ -231,7 +231,12 @@
       "037": "Não foi possível aceitar a pergunta",
       "038": "Não foi possível aprovar o conteúdo",
       "041": "Falha ao adicionar a pergunta ao conjunto. Tente novamente.",
-      "042": "Preencha os detalhes válidos da pergunta."
+      "042": "Preencha os detalhes válidos da pergunta.",
+      "selectSection": "Selecione uma seção para adicionar a pergunta",
+      "sectionNotSaved": "Salve esta seção antes de adicionar perguntas a ela",
+      "alreadyInSet": "Esta pergunta já está no conjunto",
+      "maxDepth": "Não é possível adicionar aqui — profundidade máxima atingida",
+      "attachFailed": "Não foi possível adicionar esta pergunta — tente novamente"
     },
     "success": {
       "001": "Conteúdo salvo",
@@ -246,7 +251,8 @@
       "038": "Conteúdo aprovado com sucesso",
       "039": "Conteúdo rejeitado com sucesso",
       "040": "Conteúdo devolvido para correções",
-      "043": "Comentário salvo com sucesso"
+      "043": "Comentário salvo com sucesso",
+      "questionAdded": "\"{NAME}\" adicionada"
     }
   },
   "ui": {
@@ -406,7 +412,20 @@
     "subscript": "Subscrito",
     "superscript": "Sobrescrito",
     "questionSet": "Conjunto de questões",
-    "agreeTerms": "Concordo com os Termos e Condições e a Política de Conteúdo"
+    "agreeTerms": "Concordo com os Termos e Condições e a Política de Conteúdo",
+    "questionLibrary": "Biblioteca de Perguntas",
+    "collapseLibraryPanel": "Recolher o painel da biblioteca",
+    "searchLibrary": "Pesquisar na biblioteca…",
+    "clearSearch": "Limpar pesquisa",
+    "filterByQuestionType": "Filtrar por tipo de pergunta",
+    "questionList": "Lista de perguntas",
+    "loadingQuestions": "Carregando perguntas…",
+    "noQuestionsFound": "Nenhuma pergunta encontrada. Tente outra pesquisa.",
+    "untitledQuestion": "Pergunta sem título",
+    "addToQuestionSet": "Adicionar ao conjunto de perguntas",
+    "loadMoreQuestions": "Carregar mais perguntas",
+    "loading": "Carregando…",
+    "loadMore": "Carregar mais"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Pergunta de Múltipla Escolha",

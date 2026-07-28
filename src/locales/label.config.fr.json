@@ -231,7 +231,12 @@
       "037": "Impossible d'accepter la question",
       "038": "Impossible d'approuver le contenu",
       "041": "L'ajout de la question à l'ensemble a échoué. Veuillez réessayer.",
-      "042": "Veuillez remplir les détails valides de la question."
+      "042": "Veuillez remplir les détails valides de la question.",
+      "selectSection": "Sélectionnez une section pour y ajouter la question",
+      "sectionNotSaved": "Enregistrez cette section avant d'y ajouter des questions",
+      "alreadyInSet": "Cette question figure déjà dans l'ensemble",
+      "maxDepth": "Impossible d'ajouter ici — profondeur maximale atteinte",
+      "attachFailed": "Impossible d'ajouter cette question — veuillez réessayer"
     },
     "success": {
       "001": "Contenu sauvegardé",
@@ -246,7 +251,8 @@
       "038": "Contenu approuvé avec succès",
       "039": "Contenu rejeté avec succès",
       "040": "Contenu renvoyé pour corrections",
-      "043": "Commentaire enregistré avec succès"
+      "043": "Commentaire enregistré avec succès",
+      "questionAdded": "« {NAME} » ajoutée"
     }
   },
   "ui": {
@@ -406,7 +412,20 @@
     "subscript": "Indice",
     "superscript": "Exposant",
     "questionSet": "Ensemble de questions",
-    "agreeTerms": "J'accepte les Conditions d'utilisation et la Politique de contenu"
+    "agreeTerms": "J'accepte les Conditions d'utilisation et la Politique de contenu",
+    "questionLibrary": "Bibliothèque de questions",
+    "collapseLibraryPanel": "Réduire le panneau de la bibliothèque",
+    "searchLibrary": "Rechercher dans la bibliothèque…",
+    "clearSearch": "Effacer la recherche",
+    "filterByQuestionType": "Filtrer par type de question",
+    "questionList": "Liste des questions",
+    "loadingQuestions": "Chargement des questions…",
+    "noQuestionsFound": "Aucune question trouvée. Essayez une autre recherche.",
+    "untitledQuestion": "Question sans titre",
+    "addToQuestionSet": "Ajouter à l'ensemble de questions",
+    "loadMoreQuestions": "Charger plus de questions",
+    "loading": "Chargement…",
+    "loadMore": "Charger plus"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Question à choix multiple",
