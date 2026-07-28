@@ -34,6 +34,15 @@ import { getUserId } from '../utils/context';
 import { applyContentI18n } from '../utils/i18nSerialize';
 import { resolveQuestionType } from '../registry';
 import { htmlToText } from '../utils/html';
+
+// VersionKeyValidator.scala throws this exact message (ClientException,
+// ResponseCode.CLIENT_ERROR) for a stale versionKey on update — narrow the
+// retry to it specifically so a genuinely different failure (auth, network,
+// a real validation error) surfaces on its own instead of being masked by a
+// needless retry-and-different-error.
+function isStaleVersionKeyError(err: unknown): boolean {
+  return err instanceof Error && err.message.toLowerCase().includes('version key');
+}
 import type { QuestionType, IOption, IMatchPair } from '../types/question';
 import { v4 as genUuid } from 'uuid';
 
@@ -581,7 +590,8 @@ export function useSaveQuestion() {
           let freshVersionKey: string;
           try {
             freshVersionKey = (await updateQuestion(nodeId, versionKey ?? '', questionMeta)).versionKey;
-          } catch {
+          } catch (err) {
+            if (!isStaleVersionKeyError(err)) throw err;
             // Stale versionKey — re-read the current one and retry once.
             const latest = await readQuestion(nodeId);
             freshVersionKey = (await updateQuestion(nodeId, (latest.versionKey as string) ?? '', questionMeta)).versionKey;
@@ -590,14 +600,26 @@ export function useSaveQuestion() {
 
           // Republish immediately — an edit to a Live question lands on a
           // Draft/image copy (plan.md); without this it stays saved but
-          // invisible until something else republishes it.
+          // invisible until something else republishes it. The content
+          // update above already succeeded either way, so isDirty clears
+          // regardless — but the toast must say so when publish fails, not
+          // claim an unqualified success while the edit sits invisible.
+          let published = true;
           try {
             await publishQuestion(nodeId);
           } catch (publishErr) {
+            published = false;
             console.error('[useSaveQuestion] republish failed, edit stays unpublished:', publishErr);
           }
 
-          notifySuccess(label('messages.success.013', 'Question saved'));
+          if (published) {
+            notifySuccess(label('messages.success.013', 'Question saved'));
+          } else {
+            notifyError(label(
+              'messages.error.republishFailed',
+              'Question saved, but could not be published — this edit stays hidden until it\'s republished.',
+            ));
+          }
           setIsDirty(false);
           useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: nodeId, ...questionMeta });
           return true;
@@ -635,13 +657,22 @@ export function useSaveQuestion() {
         // Publish immediately — like the old AssessmentItem flow, a newly
         // created question must be usable right away. Left as Draft it
         // would be invisible in the library search (status:"Live" only).
+        let published = true;
         try {
           await publishQuestion(identifier);
         } catch (publishErr) {
+          published = false;
           console.error('[useSaveQuestion] publish failed, question stays Draft:', publishErr);
         }
 
-        notifySuccess(label('messages.success.007', 'Question created'));
+        if (published) {
+          notifySuccess(label('messages.success.007', 'Question created'));
+        } else {
+          notifyError(label(
+            'messages.error.publishFailed',
+            'Question created, but could not be published — it stays a Draft and won\'t show up in the Library until published.',
+          ));
+        }
 
         // Stay on the question editor a moment before navigating back — the
         // search index behind the library doesn't reflect a just-created/

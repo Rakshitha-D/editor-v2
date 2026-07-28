@@ -236,7 +236,9 @@
       "sectionNotSaved": "Salve esta seção antes de adicionar perguntas a ela",
       "alreadyInSet": "Esta pergunta já está no conjunto",
       "maxDepth": "Não é possível adicionar aqui — profundidade máxima atingida",
-      "attachFailed": "Não foi possível adicionar esta pergunta — tente novamente"
+      "attachFailed": "Não foi possível adicionar esta pergunta — tente novamente",
+      "republishFailed": "Pergunta salva, mas não foi possível publicá-la — esta edição ficará oculta até ser republicada.",
+      "publishFailed": "Pergunta criada, mas não foi possível publicá-la — ela permanece como rascunho e não aparecerá na Biblioteca até ser publicada."
     },
     "success": {
       "001": "Conteúdo salvo",

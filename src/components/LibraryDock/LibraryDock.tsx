@@ -90,6 +90,12 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
 
   const { toasts, show: showToast } = useToast();
 
+  // Per-item in-flight guard — canAddExistingQuestion only reads the local
+  // tree, which isn't updated with the new node until handleAdd's await
+  // resolves, so a fast double-click on the same row could otherwise fire
+  // two questionset/v2/add calls before the first one lands.
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
   const [inputValue, setInputValue] = useState(searchQuery);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -119,6 +125,8 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
 
   const handleAdd = useCallback(
     async (item: IContent) => {
+      if (pendingIds.has(item.identifier)) return;
+
       // A question can only be attached to a section — never directly under
       // the questionset root (questionset/v2/add requires collectionId to
       // be an existing section child of root, not the root itself). isFolder
@@ -167,28 +175,37 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
 
       const displayName = (item.name ?? 'Question').slice(0, 40);
 
-      // Standalone (Default-visibility) questions must be attached via
-      // questionset/v2/add before they exist in this section at all.
-      const rootId = useTreeStore.getState().treeData[0]?.identifier;
+      setPendingIds((prev) => new Set(prev).add(item.identifier));
       try {
-        if (!rootId) throw new Error('No root questionset id');
-        await addQuestionsToSet(rootId, targetId, [item.identifier]);
-      } catch (err) {
-        console.error('[LibraryDock] attach failed:', err);
-        showToast(L('messages.error.attachFailed', 'Could not add this question — please try again'), 'error');
-        return;
-      }
+        // Standalone (Default-visibility) questions must be attached via
+        // questionset/v2/add before they exist in this section at all.
+        const rootId = useTreeStore.getState().treeData[0]?.identifier;
+        try {
+          if (!rootId) throw new Error('No root questionset id');
+          await addQuestionsToSet(rootId, targetId, [item.identifier]);
+        } catch (err) {
+          console.error('[LibraryDock] attach failed:', err);
+          showToast(L('messages.error.attachFailed', 'Could not add this question — please try again'), 'error');
+          return;
+        }
 
-      // Attach confirmed — now link it into the local tree (old-editor
-      // semantics — nothing new is created, the do_ id joins as-is).
-      const result = addExistingQuestion(targetId, item as unknown as { identifier: string } & Record<string, unknown>);
-      updateNode(result, { visibility: 'Default' });
-      // {NAME} is a substitution placeholder, not literal text — label() has
-      // no interpolation of its own, so both the config value and this
-      // fallback use the same placeholder and get it swapped in here.
-      showToast(L('messages.success.questionAdded', '"{NAME}" added').replace('{NAME}', displayName), 'success');
+        // Attach confirmed — now link it into the local tree (old-editor
+        // semantics — nothing new is created, the do_ id joins as-is).
+        const result = addExistingQuestion(targetId, item as unknown as { identifier: string } & Record<string, unknown>);
+        updateNode(result, { visibility: 'Default' });
+        // {NAME} is a substitution placeholder, not literal text — label()
+        // has no interpolation of its own, so both the config value and
+        // this fallback use the same placeholder and get it swapped in here.
+        showToast(L('messages.success.questionAdded', '"{NAME}" added').replace('{NAME}', displayName), 'success');
+      } finally {
+        setPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.identifier);
+          return next;
+        });
+      }
     },
-    [selectedNodeId, getNodeById, addExistingQuestion, updateNode, showToast, L],
+    [pendingIds, selectedNodeId, getNodeById, addExistingQuestion, updateNode, showToast, L],
   );
 
   return (
@@ -271,6 +288,12 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
                 tabIndex={0}
                 onClick={() => handlePreview(item)}
                 onKeyDown={(e) => {
+                  // Enter/Space bubbles here from the nested "+" button too
+                  // (before its own native click activation fires) — only
+                  // treat it as "preview the row" when the row itself is the
+                  // actual target, so a keyboard user tabbed to the add
+                  // button can still activate it instead of always previewing.
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handlePreview(item); }
                 }}
                 title={L('ui.previewThisQuestion', 'Preview this question')}
@@ -287,7 +310,7 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
                 <button
                   type="button"
                   className="add-btn"
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || pendingIds.has(item.identifier)}
                   onClick={(e) => { e.stopPropagation(); void handleAdd(item); }}
                   title={L('ui.addToQuestionSet', 'Add to question set')}
                   aria-label={`${L('ui.addToQuestionSet', 'Add to question set')}: ${item.name}`}

@@ -236,7 +236,9 @@
       "sectionNotSaved": "Enregistrez cette section avant d'y ajouter des questions",
       "alreadyInSet": "Cette question figure déjà dans l'ensemble",
       "maxDepth": "Impossible d'ajouter ici — profondeur maximale atteinte",
-      "attachFailed": "Impossible d'ajouter cette question — veuillez réessayer"
+      "attachFailed": "Impossible d'ajouter cette question — veuillez réessayer",
+      "republishFailed": "Question enregistrée, mais impossible de la publier — cette modification reste masquée tant qu'elle n'est pas republiée.",
+      "publishFailed": "Question créée, mais impossible de la publier — elle reste en brouillon et n'apparaîtra pas dans la bibliothèque tant qu'elle n'est pas publiée."
     },
     "success": {
       "001": "Contenu sauvegardé",

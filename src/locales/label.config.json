@@ -251,7 +251,9 @@
       "sectionNotSaved": "Save this section before adding questions to it",
       "alreadyInSet": "This question is already in the set",
       "maxDepth": "Cannot add here — maximum depth reached",
-      "attachFailed": "Could not add this question — please try again"
+      "attachFailed": "Could not add this question — please try again",
+      "republishFailed": "Question saved, but could not be published — this edit stays hidden until it's republished.",
+      "publishFailed": "Question created, but could not be published — it stays a Draft and won't show up in the Library until published."
     },
     "success": {
       "001": "Content is saved",
