@@ -425,7 +425,9 @@
     "addToQuestionSet": "Adicionar ao conjunto de perguntas",
     "loadMoreQuestions": "Carregar mais perguntas",
     "loading": "Carregando…",
-    "loadMore": "Carregar mais"
+    "loadMore": "Carregar mais",
+    "filterAll": "Todos",
+    "filterMatch": "Associação"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Pergunta de Múltipla Escolha",

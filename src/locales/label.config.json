@@ -443,6 +443,8 @@
     "addToQuestionSet": "Add to question set",
     "loadMoreQuestions": "Load more questions",
     "loading": "Loading…",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "filterAll": "All",
+    "filterMatch": "Match"
   }
 }

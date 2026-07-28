@@ -425,7 +425,9 @@
     "addToQuestionSet": "Ajouter à l'ensemble de questions",
     "loadMoreQuestions": "Charger plus de questions",
     "loading": "Chargement…",
-    "loadMore": "Charger plus"
+    "loadMore": "Charger plus",
+    "filterAll": "Tous",
+    "filterMatch": "Correspondance"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Question à choix multiple",

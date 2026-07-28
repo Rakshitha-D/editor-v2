@@ -237,7 +237,7 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
             onClick={() => setFilter(f.value)}
             aria-pressed={activeFilter === f.value}
           >
-            {f.label}
+            {L(f.labelKey, f.label)}
           </button>
         ))}
       </div>

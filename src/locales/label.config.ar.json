@@ -434,6 +434,8 @@
     "addToQuestionSet": "إضافة إلى مجموعة الأسئلة",
     "loadMoreQuestions": "تحميل المزيد من الأسئلة",
     "loading": "جارٍ التحميل…",
-    "loadMore": "تحميل المزيد"
+    "loadMore": "تحميل المزيد",
+    "filterAll": "الكل",
+    "filterMatch": "مطابقة"
   }
 }
