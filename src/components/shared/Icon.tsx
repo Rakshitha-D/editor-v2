@@ -32,7 +32,6 @@ import image       from '../../assets/icons/image.svg?raw';
 import video       from '../../assets/icons/video.svg?raw';
 import eye         from '../../assets/icons/eye.svg?raw';
 import info        from '../../assets/icons/info.svg?raw';
-import alertTriangle from '../../assets/icons/alert-triangle.svg?raw';
 import search      from '../../assets/icons/search.svg?raw';
 import filter      from '../../assets/icons/filter.svg?raw';
 import library     from '../../assets/icons/library.svg?raw';
@@ -87,7 +86,6 @@ const ICONS: Record<string, string> = {
   'video':        video,
   'eye':          eye,
   'info':         info,
-  'alert-triangle': alertTriangle,
   'search':       search,
   'filter':       filter,
   'library':      library,

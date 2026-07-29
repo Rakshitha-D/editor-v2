@@ -391,19 +391,6 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
   const [draftPreviewMeta, setDraftPreviewMeta] = useState<Record<string, unknown> | undefined>(undefined);
   const selectedNodeId = useTreeStore((st) => st.selectedNodeId);
 
-  // visibility:"Default" questions (see useSaveQuestion.ts) are standalone
-  // objects reused across any number of questionsets — an edit here is a
-  // PATCH to that one shared object, not a copy scoped to this set. A
-  // never-saved (temp-) question isn't attached anywhere yet, and legacy
-  // visibility:"Parent" questions only ever belong to this one hierarchy —
-  // neither needs the warning.
-  const isSharedQuestion = useTreeStore((st) => {
-    if (!selectedNodeId || selectedNodeId.startsWith('temp-')) return false;
-    const visibility = (st.treeCache[selectedNodeId]?.visibility
-      ?? st.getNodeById(selectedNodeId)?.metadata?.visibility) as string | undefined;
-    return visibility === 'Default';
-  });
-
   // Old editor shows a confirmation before leaving an unsaved question.
   const handleBack = () => {
     const isUnsavedNew = !!activeQuestion?.identifier?.startsWith('temp-');
@@ -434,18 +421,6 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
       <button className="ce-ed-back" type="button" onClick={handleBack}>
         <Icon name="arrow-left" size={16} />{L('ui.backToSet', 'Back to set')}
       </button>
-
-      {isSharedQuestion && (
-        <div className="ce-ed-banner" role="status">
-          <Icon name="alert-triangle" size={16} className="ico" />
-          <span>
-            {L(
-              'ui.sharedQuestionBanner',
-              "Editing this question updates it everywhere it's used — in every questionset it has been added to. If you only want to change it here, create a new question instead.",
-            )}
-          </span>
-        </div>
-      )}
 
       <div className="ce-ed-card">
         {/* Header — type badge */}
