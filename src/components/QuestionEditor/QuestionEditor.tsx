@@ -437,7 +437,7 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
 
       {isSharedQuestion && (
         <div className="ce-ed-banner" role="status">
-          <Icon name="info" size={16} className="ico" />
+          <Icon name="alert-triangle" size={16} className="ico" />
           <span>
             {L(
               'ui.sharedQuestionBanner',
