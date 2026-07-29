@@ -24,6 +24,7 @@ import send        from '../../assets/icons/send.svg?raw';
 import check       from '../../assets/icons/check.svg?raw';
 import trash       from '../../assets/icons/trash.svg?raw';
 import editSm      from '../../assets/icons/edit-sm.svg?raw';
+import pencilEdit  from '../../assets/icons/pencil-edit.svg?raw';
 import x           from '../../assets/icons/x.svg?raw';
 import drag        from '../../assets/icons/drag.svg?raw';
 import grip        from '../../assets/icons/grip.svg?raw';
@@ -78,6 +79,7 @@ const ICONS: Record<string, string> = {
   'check':        check,
   'trash':        trash,
   'edit-sm':      editSm,
+  'pencil-edit':  pencilEdit,
   'x':            x,
   'drag':         drag,
   'grip':         grip,

@@ -391,18 +391,33 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
   const [draftPreviewMeta, setDraftPreviewMeta] = useState<Record<string, unknown> | undefined>(undefined);
   const selectedNodeId = useTreeStore((st) => st.selectedNodeId);
 
+  // A question staged only to edit a Library question that isn't really
+  // part of this tree (see plan-library-edit.md) — must be cleaned up on
+  // any exit path that isn't a successful save, not just discarded temp-
+  // nodes, or it lingers under root indefinitely.
+  const isLibraryEditScratch = (id?: string): boolean =>
+    !!id && !!useTreeStore.getState().treeCache[id]?.libraryEditScratch;
+
   // Old editor shows a confirmation before leaving an unsaved question.
   const handleBack = () => {
     const isUnsavedNew = !!activeQuestion?.identifier?.startsWith('temp-');
     if (!isReadOnly && (isDirty || isUnsavedNew)) setConfirmBackOpen(true);
-    else onBack?.();
+    else {
+      if (isLibraryEditScratch(activeQuestion?.identifier)) {
+        useTreeStore.getState().cleanupLibraryEditScratch(activeQuestion!.identifier);
+      }
+      onBack?.();
+    }
   };
   // Leaving a never-saved question discards it — the temp node must not stay
   // in the tree (a later hierarchy save would create an empty question).
   const discardAndBack = () => {
     setConfirmBackOpen(false);
-    if (activeQuestion?.identifier?.startsWith('temp-')) {
-      useTreeStore.getState().deleteNode(activeQuestion.identifier);
+    const id = activeQuestion?.identifier;
+    if (id?.startsWith('temp-')) {
+      useTreeStore.getState().deleteNode(id);
+    } else if (isLibraryEditScratch(id)) {
+      useTreeStore.getState().cleanupLibraryEditScratch(id!);
     }
     onBack?.();
   };

@@ -3,9 +3,14 @@ import { Icon } from '../shared/Icon';
 import { useLibrary } from '../../hooks/useLibrary';
 import { useTreeStore } from '../../store/tree.store';
 import { useEditorStore } from '../../store/editor.store';
+import { useUiStore } from '../../store/ui.store';
+import { useQuestionStore } from '../../store/question.store';
 import { useLabels } from '../../hooks/useLabels';
+import { useValidateAndSave } from '../../hooks/useValidateAndSave';
 import { addQuestionsToSet } from '../../api/hierarchy';
+import { readQuestion } from '../../api/question';
 import { detectNodeKind } from '../../utils/nodeKind';
+import { deriveQuestionType, normalizeQuestionRead } from '../../utils/questionRead';
 import { resolveByCategory } from '../../registry';
 import type { IContent } from '../../types/content';
 import { QUESTION_FILTERS } from '../../types/content';
@@ -85,6 +90,9 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
   const addExistingQuestion = useTreeStore((s) => s.addExistingQuestion);
   const getNodeById = useTreeStore((s) => s.getNodeById);
   const updateNode = useTreeStore((s) => s.updateNode);
+  const selectNode = useTreeStore((s) => s.selectNode);
+  const setPendingEditorOpen = useUiStore((s) => s.setPendingEditorOpen);
+  const validateAndSave = useValidateAndSave();
   const editorMode = useEditorStore((s) => s.editorMode);
   const isReadOnly = editorMode !== 'edit';
 
@@ -208,6 +216,68 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
     [pendingIds, selectedNodeId, getNodeById, addExistingQuestion, updateNode, showToast, L],
   );
 
+  // Opens a Library question in the inline QuestionEditor even though it
+  // isn't necessarily part of the currently open questionset's tree at all
+  // (see plan-library-edit.md) — mirrors the "Create Question" scratch-node
+  // pattern: a temporary tree node under root hosts the selection/editor
+  // machinery, then is dropped again on save or cancel.
+  const handleEdit = useCallback(
+    async (item: IContent) => {
+      if (isReadOnly || pendingIds.has(item.identifier)) return;
+
+      // Already part of the current tree — open the real node instead of
+      // staging a redundant scratch node for the same question.
+      const existing = getNodeById(item.identifier);
+      if (existing) {
+        selectNode(item.identifier);
+        setPendingEditorOpen(item.identifier);
+        return;
+      }
+
+      // Same safety net as Add Section / Create Question — persist any
+      // other pending edit first so it isn't silently lost.
+      if (!(await validateAndSave())) return;
+
+      const rootId = useTreeStore.getState().treeData[0]?.identifier;
+      if (!rootId) return;
+      const previousSelectedNodeId = useTreeStore.getState().selectedNodeId ?? undefined;
+
+      setPendingIds((prev) => new Set(prev).add(item.identifier));
+      try {
+        const raw = await readQuestion(item.identifier);
+        const newId = useTreeStore.getState().addExistingQuestion(rootId, {
+          ...raw,
+          identifier: item.identifier,
+          questionType: deriveQuestionType(raw),
+        });
+        if (newId === 'exists' || newId === '') {
+          showToast(L('messages.error.editOpenFailed', 'Could not open this question for editing'), 'error');
+          return;
+        }
+        updateNode(newId, { libraryEditScratch: true, previousSelectedNodeId });
+        setPendingEditorOpen(newId);
+        // addExistingQuestion selects the new node itself, but only on the
+        // NEXT tick (its own setTimeout) — that selection re-derives
+        // activeQuestion from the node's partial metadata subset (see
+        // tree.store's selectNode) and would clobber this fuller
+        // normalization. Queue ours right after so the full read wins.
+        setTimeout(() => {
+          useQuestionStore.getState().setActiveQuestion(normalizeQuestionRead(raw));
+        }, 0);
+      } catch (err) {
+        console.error('[LibraryDock] read question for edit failed:', err);
+        showToast(L('messages.error.editOpenFailed', 'Could not open this question for editing'), 'error');
+      } finally {
+        setPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.identifier);
+          return next;
+        });
+      }
+    },
+    [isReadOnly, pendingIds, getNodeById, selectNode, setPendingEditorOpen, validateAndSave, updateNode, showToast, L],
+  );
+
   return (
     <>
       <div className="ce-lib-head">
@@ -307,16 +377,28 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
                     {metaLine(item) && <span className="sub">{metaLine(item)}</span>}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="add-btn"
-                  disabled={isReadOnly || pendingIds.has(item.identifier)}
-                  onClick={(e) => { e.stopPropagation(); void handleAdd(item); }}
-                  title={L('ui.addToQuestionSet', 'Add to question set')}
-                  aria-label={`${L('ui.addToQuestionSet', 'Add to question set')}: ${item.name}`}
-                >
-                  <Icon name="plus" size={15} />
-                </button>
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="edit-btn"
+                    disabled={isReadOnly || pendingIds.has(item.identifier)}
+                    onClick={(e) => { e.stopPropagation(); void handleEdit(item); }}
+                    title={L('ui.editQuestion', 'Edit this question')}
+                    aria-label={`${L('ui.editQuestion', 'Edit this question')}: ${item.name}`}
+                  >
+                    <Icon name="pencil-edit" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="add-btn"
+                    disabled={isReadOnly || pendingIds.has(item.identifier)}
+                    onClick={(e) => { e.stopPropagation(); void handleAdd(item); }}
+                    title={L('ui.addToQuestionSet', 'Add to question set')}
+                    aria-label={`${L('ui.addToQuestionSet', 'Add to question set')}: ${item.name}`}
+                  >
+                    <Icon name="plus" size={15} />
+                  </button>
+                </div>
               </div>
             ))}
 

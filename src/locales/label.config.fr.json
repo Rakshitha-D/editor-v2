@@ -237,6 +237,7 @@
       "alreadyInSet": "Cette question figure déjà dans l'ensemble",
       "maxDepth": "Impossible d'ajouter ici — profondeur maximale atteinte",
       "attachFailed": "Impossible d'ajouter cette question — veuillez réessayer",
+      "editOpenFailed": "Impossible d'ouvrir cette question pour modification",
       "republishFailed": "Question enregistrée, mais impossible de la publier — cette modification reste masquée tant qu'elle n'est pas republiée.",
       "publishFailed": "Question créée, mais impossible de la publier — elle reste en brouillon et n'apparaîtra pas dans la bibliothèque tant qu'elle n'est pas publiée."
     },
@@ -425,6 +426,7 @@
     "noQuestionsFound": "Aucune question trouvée. Essayez une autre recherche.",
     "untitledQuestion": "Question sans titre",
     "addToQuestionSet": "Ajouter à l'ensemble de questions",
+    "editQuestion": "Modifier cette question",
     "loadMoreQuestions": "Charger plus de questions",
     "loading": "Chargement…",
     "loadMore": "Charger plus",

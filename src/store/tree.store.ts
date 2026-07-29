@@ -27,6 +27,12 @@ interface TreeState {
    *  it, instead of inserting optimistically and rolling back on failure
    *  (which flashes the question into the outline for a moment). */
   canAddExistingQuestion: (parentId: string, identifier: string) => 'ok' | 'exists' | 'maxDepth';
+  /** Drop a scratch node staged for editing a Library question that isn't
+   *  really part of this tree (see plan-library-edit.md), and restore
+   *  whatever was selected before it was staged. Called after a successful
+   *  save AND on cancel/back — the node is never really part of this
+   *  questionset's hierarchy either way. */
+  cleanupLibraryEditScratch: (nodeId: string) => void;
   deleteNode: (id: string) => void;
   reorderChildren: (parentId: string, fromIndex: number, toIndex: number) => void;
   markDirty: () => void;
@@ -286,6 +292,14 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     const maxDepth = useEditorStore.getState().editorConfig?.config?.maxDepth ?? 3;
     if (getNodeDepth(treeData, parentId) >= maxDepth - 1) return 'maxDepth';
     return 'ok';
+  },
+
+  cleanupLibraryEditScratch: (nodeId) => {
+    const previousSelectedNodeId = get().treeCache[nodeId]?.previousSelectedNodeId as string | undefined;
+    get().deleteNode(nodeId);
+    if (previousSelectedNodeId && bfsFind(get().treeData, previousSelectedNodeId)) {
+      get().selectNode(previousSelectedNodeId);
+    }
   },
 
   addExistingQuestion: (parentId, item) => {
