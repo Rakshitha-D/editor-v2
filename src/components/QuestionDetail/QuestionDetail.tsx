@@ -16,6 +16,7 @@ const QumlPlayer = lazy(() => import('../QumlPlayer/QumlPlayer'));
 
 interface QuestionDetailProps {
   node: INode;
+  onOpenEditor: () => void;
   onRemove: () => void;
   isEditMode?: boolean;
   /** True while question/v2/read for this node is in flight. */
@@ -24,6 +25,7 @@ interface QuestionDetailProps {
 
 const QuestionDetail: React.FC<QuestionDetailProps> = ({
   node,
+  onOpenEditor,
   onRemove,
   isEditMode = true,
   isLoading = false,
@@ -94,6 +96,9 @@ const QuestionDetail: React.FC<QuestionDetailProps> = ({
 
       {isEditMode && (
         <div className="ce-qactions">
+          <button className="ce-btn primary" onClick={onOpenEditor} type="button">
+            <Icon name="edit-sm" size={15} />{L('ui.openInEditor', 'Open in editor')}
+          </button>
           <button className="ce-btn danger" onClick={onRemove} type="button">
             <Icon name="trash" size={15} />{L('ui.remove', 'Remove')}
           </button>

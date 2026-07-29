@@ -227,16 +227,12 @@ aside.ce-lib { max-width: none; margin: 0; }
   color: var(--accent-deep); background: var(--accent-soft); border-radius: var(--sbx-radius-full); padding: 3px 9px;
 }
 .ce-lib-item .sub { font-size: 12.5px; color: var(--sb-text-muted); }
-.ce-lib-item .actions { flex: none; display: flex; align-items: center; gap: 6px; }
-.ce-lib-item .add-btn,
-.ce-lib-item .edit-btn {
+.ce-lib-item .add-btn {
   flex: none; width: 32px; height: 32px; border-radius: var(--sbx-radius-lg); border: 1px solid var(--sb-border);
   background: #fff; color: var(--accent-deep); cursor: pointer; display: grid; place-items: center; transition: all .14s;
 }
-.ce-lib-item .add-btn:hover:not(:disabled),
-.ce-lib-item .edit-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
-.ce-lib-item .add-btn:disabled,
-.ce-lib-item .edit-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ce-lib-item .add-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ce-lib-item .add-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 .ce-lib-loadmore {
   width: 100%; height: 40px; border: 1px solid var(--sb-border); background: #fff;

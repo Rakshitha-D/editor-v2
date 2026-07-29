@@ -237,7 +237,6 @@
       "alreadyInSet": "Esta pergunta já está no conjunto",
       "maxDepth": "Não é possível adicionar aqui — profundidade máxima atingida",
       "attachFailed": "Não foi possível adicionar esta pergunta — tente novamente",
-      "editOpenFailed": "Não foi possível abrir esta pergunta para edição",
       "republishFailed": "Pergunta salva, mas não foi possível publicá-la — esta edição ficará oculta até ser republicada.",
       "publishFailed": "Pergunta criada, mas não foi possível publicá-la — ela permanece como rascunho e não aparecerá na Biblioteca até ser publicada."
     },
@@ -427,7 +426,6 @@
     "noQuestionsFound": "Nenhuma pergunta encontrada. Tente outra pesquisa.",
     "untitledQuestion": "Pergunta sem título",
     "addToQuestionSet": "Adicionar ao conjunto de perguntas",
-    "editQuestion": "Editar esta pergunta",
     "loadMoreQuestions": "Carregar mais perguntas",
     "loading": "Carregando…",
     "loadMore": "Carregar mais",

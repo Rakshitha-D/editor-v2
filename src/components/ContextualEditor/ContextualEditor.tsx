@@ -378,6 +378,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                     <QuestionDetail
                       isLoading={isQuestionLoading}
                       node={useTreeStore.getState().getNodeById(selectedNodeId ?? '') ?? { id: selectedNodeId ?? '', identifier: selectedNodeId ?? '', name: '' }}
+                      onOpenEditor={() => setInlineEditorOpen(true)}
                       onRemove={() => openModal('confirmDelete', { nodeId: selectedNodeId })}
                       isEditMode={editorMode === 'edit'}
                     />

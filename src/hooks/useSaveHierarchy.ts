@@ -26,7 +26,7 @@ function buildSavePayload(
     // rejects index/depth and manages the rest itself; old editor never sends them.
     'index', 'depth', 'status', 'versionKey', 'createdOn', 'lastUpdatedOn', 'lastStatusChangedOn','graphId',
     // Standalone-question bookkeeping (useSaveQuestion) — never a hierarchy field.
-    'previousSelectedNodeId', 'libraryEditScratch',
+    'previousSelectedNodeId',
   ]);
   const ARRAY_FIELDS  = new Set(['audience', 'medium', 'gradeLevel', 'subject', 'keywords', 'language', 'topic']);
   const NUMBER_FIELDS = new Set(['copyrightYear', 'maxScore', 'expectedDuration', 'maxAttempts']);

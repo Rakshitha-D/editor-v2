@@ -623,15 +623,6 @@ export function useSaveQuestion() {
           setIsDirty(false);
           useEditorStore.getState().eventHandlers.onQuestionSaved?.({ identifier: nodeId, ...questionMeta });
 
-          // This node was only staged to edit a Library question that isn't
-          // really part of this tree (see plan-library-edit.md) — drop the
-          // scratch node and restore whatever was selected before it was
-          // staged, instead of leaving it sitting under root indefinitely.
-          if (cached.libraryEditScratch) {
-            useTreeStore.getState().cleanupLibraryEditScratch(nodeId);
-            refreshLibrary();
-          }
-
           return true;
         }
 
