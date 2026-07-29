@@ -96,6 +96,10 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
   // two questionset/v2/add calls before the first one lands.
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
+  // Type filter chips are hidden behind this toggle instead of always
+  // taking up space in the sidebar.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [inputValue, setInputValue] = useState(searchQuery);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -249,24 +253,38 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
           onClick={toggleSort}
           aria-pressed={sortAZ}
           title={sortAZ ? L('ui.sortByRecent', 'Switch to most recent first') : L('ui.sortAZ', 'Sort A–Z')}
+          aria-label={sortAZ ? L('ui.sortByRecent', 'Switch to most recent first') : L('ui.sortAZ', 'Sort A–Z')}
         >
-          <span>{sortAZ ? L('ui.sortAZLabel', 'A–Z') : L('ui.sortRecentLabel', 'Recent')}</span>
+          {sortAZ ? <span>{L('ui.sortAZLabel', 'A–Z')}</span> : <Icon name="clock" size={15} />}
+        </button>
+        <button
+          type="button"
+          className={`ce-lib-filter-btn${filtersOpen ? ' on' : ''}`}
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-pressed={filtersOpen}
+          aria-expanded={filtersOpen}
+          title={L('ui.filterByQuestionType', 'Filter by question type')}
+          aria-label={L('ui.filterByQuestionType', 'Filter by question type')}
+        >
+          <Icon name="sliders" size={16} />
         </button>
       </div>
 
-      <div className="ce-lib-filters" aria-label={L('ui.filterByQuestionType', 'Filter by question type')}>
-        {QUESTION_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            className={`ce-lib-chip${activeFilter === f.value ? ' on' : ''}`}
-            onClick={() => setFilter(f.value)}
-            aria-pressed={activeFilter === f.value}
-          >
-            {L(f.labelKey, f.label)}
-          </button>
-        ))}
-      </div>
+      {filtersOpen && (
+        <div className="ce-lib-filters" aria-label={L('ui.filterByQuestionType', 'Filter by question type')}>
+          {QUESTION_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              className={`ce-lib-chip${activeFilter === f.value ? ' on' : ''}`}
+              onClick={() => setFilter(f.value)}
+              aria-pressed={activeFilter === f.value}
+            >
+              {L(f.labelKey, f.label)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="ce-lib-scroll" role="list" aria-label={L('ui.questionList', 'Question list')}>
         {isLoading && content.length === 0 ? (
@@ -299,7 +317,7 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
                 title={L('ui.previewThisQuestion', 'Preview this question')}
                 aria-label={`${L('ui.previewThisQuestion', 'Preview this question')}: ${item.name}`}
               >
-                <span className="ico"><Icon name={typeIcon(item.primaryCategory)} size={17} /></span>
+                <span className="ico"><Icon name={typeIcon(item.primaryCategory)} size={15} /></span>
                 <div className="body">
                   <p className="nm">{item.name || L('ui.untitledQuestion', 'Untitled Question')}</p>
                   <div className="meta">
@@ -315,7 +333,7 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
                   title={L('ui.addToQuestionSet', 'Add to question set')}
                   aria-label={`${L('ui.addToQuestionSet', 'Add to question set')}: ${item.name}`}
                 >
-                  <Icon name="plus" size={15} />
+                  <Icon name="plus" size={13} />
                 </button>
               </div>
             ))}
