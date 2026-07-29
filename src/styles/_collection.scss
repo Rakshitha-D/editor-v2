@@ -448,6 +448,12 @@ aside.ce-tree { max-width: none; margin: 0; }
 .ce-ed { width: 100%; min-width: min(640px, 100%); max-width: 940px; margin: 0 auto; }
 .ce-ed-back { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--sb-text-muted); padding: 6px 8px; border-radius: var(--sbx-radius-lg); margin-bottom: 12px; }
 .ce-ed-back:hover { color: var(--accent-deep); background: var(--accent-soft); }
+.ce-ed-banner {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 10px 16px;
+  background: var(--sbx-amber-50, #FFFBEB); border: 1px solid var(--sbx-amber-200, #FDE68A);
+  border-radius: var(--sbx-radius-lg); color: var(--sbx-amber-900, #78350F); font-size: 13px; line-height: 1.5;
+}
+.ce-ed-banner .ico { flex: none; margin-top: 1px; color: var(--sbx-amber-600, #D97706); }
 /* overflow:clip preserves border-radius visual clipping but does NOT break position:sticky (unlike overflow:hidden) */
 .ce-ed-card { background: var(--sb-card); border: 1px solid var(--sb-border-soft); border-radius: 22px; box-shadow: var(--sb-shadow-card); overflow: clip; }
 .ce-ed-head { display: flex; align-items: center; gap: 14px; padding: 22px 30px; border-bottom: 1px solid var(--sb-divider); }

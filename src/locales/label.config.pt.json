@@ -281,6 +281,7 @@
     "openInEditor": "Abrir no editor",
     "remove": "Remover",
     "backToSet": "Voltar ao conjunto",
+    "sharedQuestionBanner": "Editar esta pergunta a atualiza em todos os lugares onde é usada — em todos os conjuntos de perguntas aos quais foi adicionada. Se quiser alterá-la apenas aqui, crie uma nova pergunta em vez disso.",
     "saving": "Salvando…",
     "newQuestion": "NOVA QUESTÃO",
     "whatCreate": "O que você gostaria de criar?",

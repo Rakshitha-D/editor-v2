@@ -281,6 +281,7 @@
     "openInEditor": "Ouvrir dans l'éditeur",
     "remove": "Supprimer",
     "backToSet": "Retour à l'ensemble",
+    "sharedQuestionBanner": "Modifier cette question la met à jour partout où elle est utilisée — dans chaque ensemble de questions où elle a été ajoutée. Si vous souhaitez la modifier uniquement ici, créez plutôt une nouvelle question.",
     "saving": "Enregistrement…",
     "newQuestion": "NOUVELLE QUESTION",
     "whatCreate": "Que souhaitez-vous créer ?",
