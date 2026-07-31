@@ -7,6 +7,12 @@ export async function getFramework(frameworkId: string): Promise<IFramework> {
   return response.data?.result?.framework as IFramework;
 }
 
+// Framework `type`s selectable from the Framework picker. Every framework
+// used by this app so far is one of these (NCF/CBSE and USF are "K-12",
+// TPD is "TPD") — a framework of any OTHER type is silently excluded from
+// the search results, so add its type here when a new one needs to appear.
+const SELECTABLE_FRAMEWORK_TYPES = ['K-12', 'TPD'];
+
 /** Live, Live-status frameworks available for the Framework picker —
  *  channel is scoped via apiClient's own X-Channel-Id header, not a body
  *  filter (matches how the backend actually expects this search). */
@@ -16,7 +22,7 @@ export async function searchFrameworks(): Promise<Array<{ identifier: string; na
       filters: {
         objectType: 'Framework',
         status: ['Live'],
-        type: ['K-12', 'TPD'],
+        type: SELECTABLE_FRAMEWORK_TYPES,
         systemDefault: 'Yes',
       },
     },

@@ -1,10 +1,12 @@
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import type { ITerm } from '../../types/framework';
 import { Icon } from '../shared/Icon';
 import type { ICategoryField } from '../../api/categoryDefinition';
 import { useEditorStore } from '../../store/editor.store';
+import { searchFrameworks } from '../../api/framework';
 import styles from './SparkMetaForm.module.scss';
 import ImagePickerModal from '../shared/ImagePickerModal';
 import ContentEditable from '../shared/ContentEditable';
@@ -345,13 +347,20 @@ function buildCascadedOptions(
 // uses, generalized instead of hardcoded to the K-12 set specifically.
 // ---------------------------------------------------------------------------
 
-/** A field's options can ONLY come from framework term data (never
- *  field.range/field.enum) — the only kind of field this adaptation should
- *  ever touch. A select/multiselect field that already has its own fixed
- *  range/enum (license, maxQuestions, …) is never framework-specific. */
+/** A field bound to a framework category (either explicitly via
+ *  sourceCategory, or implicitly since buildOptions() falls back to
+ *  frameworkTerms[field.code] first) — the only kind of field this
+ *  adaptation should ever touch. An explicit sourceCategory always wins
+ *  even if the field also carries a static range/enum fallback (that
+ *  fallback only matters before framework data has loaded — buildOptions()
+ *  still prefers frameworkTerms over it once available, so the field stays
+ *  framework-bound either way). A select/multiselect field with no
+ *  sourceCategory but ALSO fixed options of its own (license, maxQuestions,
+ *  …) is never framework-specific. */
 function isFrameworkDrivenField(field: ICategoryField): boolean {
   const isSelectLike = field.inputType === 'select' || isMultiSelectField(field);
   if (!isSelectLike) return false;
+  if (field.sourceCategory) return true;
   const hasFixedOptions = Array.isArray(field.range) && field.range.length > 0
     || Array.isArray(field.enum) && field.enum.length > 0;
   return !hasFixedOptions;
@@ -375,6 +384,11 @@ function adaptFieldsForFramework(
 
   // buildOptions() already resolves a field's options from frameworkTerms
   // first (keyed by sourceCategory ?? code) — no range/enum needed here.
+  // required: true — matches the static category fields these stand in for
+  // (Industry/Domain/Skill/Audience are all required); leaving a framework's
+  // own categories optional just because they happened to need synthesizing
+  // would make curriculum categorization mandatory for some frameworks and
+  // not others, depending purely on which one is selected.
   const keptCodes = new Set(kept.map((f) => f.sourceCategory ?? f.code));
   const dynamic: ICategoryField[] = [];
   for (const code of frameworkCategoryCodes) {
@@ -383,7 +397,7 @@ function adaptFieldsForFramework(
       code,
       label: code.charAt(0).toUpperCase() + code.slice(1),
       inputType: 'multiselect',
-      required: false,
+      required: true,
       editable: true,
       visible: true,
       section: 'Audience & Curriculum',
@@ -855,9 +869,17 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   isRoot = false,
 }) => {
   const setContentFramework = useEditorStore((s) => s.setContentFramework);
-  const channelFrameworks = useEditorStore(
-    (s) => (s.channelData?.frameworks as Array<{ identifier: string; name: string }> | undefined) ?? [],
-  );
+  // Same query key as ContextualEditor's standalone Framework picker — this
+  // only matters if a category-definition schema ever defines its own
+  // 'framework'-coded field (handled generically in the "select" branch
+  // below); channelData.frameworks isn't reliably populated (see
+  // ContextualEditor.tsx), so this shares the same live search instead.
+  const frameworkListQuery = useQuery({
+    queryKey: ['framework-search'],
+    queryFn: searchFrameworks,
+    staleTime: 10 * 60 * 1000,
+  });
+  const channelFrameworks = frameworkListQuery.data ?? [];
 
   // The "framework" field drives which framework's terms populate every
   // OTHER category dropdown on this form — switching it needs to update

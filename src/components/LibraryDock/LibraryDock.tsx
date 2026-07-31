@@ -277,6 +277,13 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
 
         const { identifier: newId } = await createQuestion(createMeta);
 
+        // Mark it as a copy immediately, before anything that can still
+        // fail below — the question already exists on the backend at this
+        // point regardless of whether publish/attach succeed, so it must
+        // never be left untracked (visible in search, un-editable, with no
+        // way to identify it as a copy again).
+        useCopyRegistryStore.getState().markAsCopy(newId);
+
         // Publish immediately — matches "Create Question": non-fatal if it
         // fails, but the copy stays a Draft until something republishes it.
         let published = true;
@@ -304,17 +311,23 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
         // copy is selected below), which the user can easily race past by
         // opening it for editing and saving right away — a guaranteed
         // BLANK_VERSION on that first save, self-healed by useSaveQuestion's
-        // stale-versionKey retry, but a wasted round-trip every time.
+        // stale-versionKey retry, but a wasted round-trip every time. Retry
+        // once — a transient failure here would otherwise silently drop
+        // back to a versionKey-less createMeta and reproduce that race.
         let finalMeta: Record<string, unknown> = createMeta;
         try {
           finalMeta = await readQuestion(newId);
         } catch (readErr) {
-          console.error('[LibraryDock] copy re-read failed, using local metadata:', readErr);
+          console.error('[LibraryDock] copy re-read failed, retrying once:', readErr);
+          try {
+            finalMeta = await readQuestion(newId);
+          } catch (retryErr) {
+            console.error('[LibraryDock] copy re-read retry also failed, using local metadata:', retryErr);
+          }
         }
 
         const resultId = addExistingQuestion(targetId, { ...finalMeta, identifier: newId });
         updateNode(resultId, { visibility: 'Default' });
-        useCopyRegistryStore.getState().markAsCopy(newId);
 
         if (published) {
           showToast(L('messages.success.questionCopied', '"{NAME}" copied').replace('{NAME}', displayName), 'success');
