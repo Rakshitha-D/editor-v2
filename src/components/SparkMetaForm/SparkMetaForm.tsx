@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import type { ITerm } from '../../types/framework';
 import { Icon } from '../shared/Icon';
@@ -170,12 +171,27 @@ export function fieldMatchesSection(field: ICategoryField, section?: string): bo
 }
 
 // ---------------------------------------------------------------------------
+// Skill needs a searchable multi-select regardless of what the category
+// definition's own inputType says — matched on code AND label since the
+// live config's exact field code isn't something this file can see ahead
+// of time.
+// ---------------------------------------------------------------------------
+
+function isSkillField(field: ICategoryField): boolean {
+  return field.code?.toLowerCase() === 'skill' || field.label?.toLowerCase() === 'skill';
+}
+
+function isMultiSelectField(field: ICategoryField): boolean {
+  return field.inputType === 'multiselect' || isSkillField(field);
+}
+
+// ---------------------------------------------------------------------------
 // Build per-field Zod validator (returns error message string | undefined)
 // ---------------------------------------------------------------------------
 
 function makeFieldValidator(field: ICategoryField) {
   return (value: unknown): string | true => {
-    const inputType = field.inputType ?? 'text';
+    const inputType = isMultiSelectField(field) ? 'multiselect' : (field.inputType ?? 'text');
 
     if (inputType === 'multiselect' || inputType === 'keywords') {
       const arr = Array.isArray(value) ? value : [];
@@ -229,7 +245,7 @@ export function findMissingRequiredFields(
 // Helpers — build select/multiselect options
 // ---------------------------------------------------------------------------
 
-interface SelectOption {
+export interface SelectOption {
   value: string;
   label: string;
 }
@@ -322,7 +338,7 @@ function buildDefaultValues(
   for (const f of fields) {
     if (!f.visible || !fieldMatchesSection(f, section)) continue;
     const v = values[f.code];
-    if (f.inputType === 'multiselect' || f.inputType === 'keywords') {
+    if (isMultiSelectField(f) || f.inputType === 'keywords') {
       defaults[f.code] = Array.isArray(v) ? v : v ? [String(v)] : [];
     } else if (f.inputType === 'checkbox') {
       defaults[f.code] = Boolean(v);
@@ -427,6 +443,285 @@ const KeywordChips: React.FC<KeywordChipsProps> = ({
           onBlur={handleBlur}
           aria-label="Add keyword"
         />
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// MultiSelectSearch — searchable dropdown that toggles multiple selections,
+// shown as chips (same chip styling as KeywordChips) inside the trigger box.
+// ---------------------------------------------------------------------------
+
+interface MultiSelectSearchProps {
+  fieldId: string;
+  value: string[];
+  options: SelectOption[];
+  onChange: (v: string[]) => void;
+  readOnly?: boolean;
+  placeholder?: string;
+  hasError?: boolean;
+}
+
+const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
+  fieldId,
+  value,
+  options,
+  onChange,
+  readOnly = false,
+  placeholder = 'Search…',
+  hasError = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [panelRect, setPanelRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Portaled to document.body (see below) — the trigger sits inside
+  // .ce-card, which needs overflow:hidden for its own rounded corners, and
+  // that clips any absolutely-positioned descendant. Tracking the trigger's
+  // own rect instead of nesting the panel under it sidesteps that entirely.
+  useEffect(() => {
+    if (!open) return;
+    const updateRect = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (rect) setPanelRect({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    };
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // The panel is portaled to document.body (see below), so a click inside
+    // it is NOT a descendant of wrapRef — check both, or every option click
+    // would close the panel via this handler before its own onClick fires.
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
+  }, [options, query]);
+
+  const labelOf = useCallback(
+    (val: string) => options.find((o) => o.value === val)?.label ?? val,
+    [options],
+  );
+
+  const toggle = useCallback(
+    (val: string) => {
+      onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
+    },
+    [value, onChange],
+  );
+
+  return (
+    <div className={styles.multiSelectWrap} ref={wrapRef}>
+      <div
+        className={`${styles.chips} ${hasError ? styles.inputError : ''}`}
+        onClick={() => { if (!readOnly) { setOpen(true); inputRef.current?.focus(); } }}
+      >
+        <Icon name="search" size={15} className={styles.msSearchIcon} />
+        {value.map((v) => (
+          <span key={v} className={styles.chip}>
+            <span className={styles.chipLabel}>{labelOf(v)}</span>
+            {!readOnly && (
+              <button
+                type="button"
+                className={styles.chipRemove}
+                onClick={(e) => { e.stopPropagation(); toggle(v); }}
+                aria-label={`Remove ${labelOf(v)}`}
+              >
+                <Icon name="x" size={10} />
+              </button>
+            )}
+          </span>
+        ))}
+        {!readOnly && (
+          <input
+            ref={inputRef}
+            id={fieldId}
+            type="text"
+            className={styles.chipsInput}
+            placeholder={value.length === 0 ? placeholder : ''}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            aria-label={placeholder}
+          />
+        )}
+      </div>
+
+      {open && !readOnly && panelRect && createPortal(
+        <div
+          ref={panelRef}
+          className={styles.msPanel}
+          style={{ position: 'fixed', top: panelRect.top, left: panelRect.left, width: panelRect.width }}
+          role="listbox"
+          aria-multiselectable="true"
+        >
+          {filtered.length === 0 ? (
+            <div className={styles.msEmpty}>No matches</div>
+          ) : (
+            filtered.map((opt) => {
+              const selected = value.includes(opt.value);
+              return (
+                <button
+                  type="button"
+                  key={opt.value}
+                  className={`${styles.msOption} ${selected ? styles.msOptionSelected : ''}`}
+                  onClick={() => toggle(opt.value)}
+                  role="option"
+                  aria-selected={selected}
+                >
+                  <span className={styles.msCheckbox}>{selected && <Icon name="check" size={11} />}</span>
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })
+          )}
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// SingleSelectDropdown — themed replacement for a native <select> (single
+// value only, no search) — the OS-rendered native dropdown doesn't follow
+// the app's own theme at all (see MultiSelectSearch above for the same
+// portal/positioning approach, needed for the same .ce-card overflow:hidden
+// clipping reason).
+// ---------------------------------------------------------------------------
+
+export interface SingleSelectDropdownProps {
+  fieldId: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  hasError?: boolean;
+}
+
+export const SingleSelectDropdown: React.FC<SingleSelectDropdownProps> = ({
+  fieldId,
+  value,
+  options,
+  onChange,
+  disabled = false,
+  placeholder = 'Select…',
+  hasError = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [panelRect, setPanelRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const updateRect = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (rect) setPanelRect({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    };
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open]);
+
+  const select = useCallback(
+    (v: string) => {
+      onChange(v);
+      setOpen(false);
+    },
+    [onChange],
+  );
+
+  const selectedLabel = options.find((o) => o.value === value)?.label;
+
+  return (
+    <div className={styles.singleSelectWrap} ref={wrapRef}>
+      <button
+        type="button"
+        id={fieldId}
+        className={`${styles.select} ${styles.selectTrigger} ${hasError ? styles.inputError : ''}`}
+        onClick={() => { if (!disabled) setOpen((o) => !o); }}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className={selectedLabel ? undefined : styles.selectPlaceholderText}>
+          {selectedLabel ?? placeholder}
+        </span>
+      </button>
+
+      {open && !disabled && panelRect && createPortal(
+        <div
+          ref={panelRef}
+          className={styles.msPanel}
+          style={{ position: 'fixed', top: panelRect.top, left: panelRect.left, width: panelRect.width }}
+          role="listbox"
+        >
+          <button
+            type="button"
+            className={styles.msOption}
+            onClick={() => select('')}
+            role="option"
+            aria-selected={!value}
+          >
+            <span className={styles.msCheck}>{!value && <Icon name="check" size={13} />}</span>
+            <span>{placeholder}</span>
+          </button>
+          {options.map((opt) => {
+            const selected = opt.value === value;
+            return (
+              <button
+                type="button"
+                key={opt.value}
+                className={`${styles.msOption} ${selected ? styles.msOptionSelected : ''}`}
+                onClick={() => select(opt.value)}
+                role="option"
+                aria-selected={selected}
+              >
+                <span className={styles.msCheck}>{selected && <Icon name="check" size={13} />}</span>
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -609,7 +904,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
               control={control}
               rules={{ validate: validator }}
               render={({ field: rhfField }) => {
-                const inputType = field.inputType ?? 'text';
+                const inputType = isMultiSelectField(field) ? 'multiselect' : (field.inputType ?? 'text');
 
                 // ── richtext — renders HTML content via ContentEditable ───
                 if (inputType === 'richtext') {
@@ -661,65 +956,44 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
                       ? [{ value: currentVal, label: currentVal }, ...options]
                       : options;
                   return (
-                    <select
-                      id={fieldId}
-                      className={`${styles.select} ${error ? styles.inputError : ''}`}
+                    <SingleSelectDropdown
+                      fieldId={fieldId}
                       value={currentVal}
-                      onChange={(e) => {
-                        // Native <select> values are always strings — coerce
-                        // to a number for maxQuestions specifically, so the
-                        // saved metadata sends a digit, not a string.
-                        const raw = e.target.value;
+                      options={displayOptions}
+                      disabled={isDisabled}
+                      hasError={!!error}
+                      placeholder={field.placeholder ?? `Select ${field.label}`}
+                      onChange={(raw) => {
+                        // Coerce to a number for maxQuestions specifically,
+                        // so the saved metadata sends a digit, not a string.
                         const newVal = field.code === 'maxQuestions' && raw !== '' ? Number(raw) : raw;
                         rhfField.onChange(newVal);
                         onChange(field.code, newVal);
                         // Reset all fields that depend on this one
                         resetDependents(field.code);
                       }}
-                      onBlur={rhfField.onBlur}
-                      disabled={isDisabled}
-                      aria-invalid={!!error}
-                      aria-describedby={error ? `${fieldId}-error` : undefined}
-                    >
-                      <option value="">{field.placeholder ?? `Select ${field.label}`}</option>
-                      {displayOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   );
                 }
 
-                // ── multiselect — rendered as a single dropdown ───────────
+                // ── multiselect — searchable dropdown, multiple selections ─
                 if (inputType === 'multiselect') {
                   const options = buildOptions(field, frameworkTerms);
-                  const currentVal = Array.isArray(rhfField.value)
-                    ? (rhfField.value as string[])[0] ?? ''
-                    : String(rhfField.value ?? '');
+                  const currentVal = Array.isArray(rhfField.value) ? (rhfField.value as string[]) : [];
 
                   return (
-                    <select
-                      id={fieldId}
-                      className={`${styles.select} ${error ? styles.inputError : ''}`}
+                    <MultiSelectSearch
+                      fieldId={fieldId}
                       value={currentVal}
-                      onChange={(e) => {
-                        const val = e.target.value ? [e.target.value] : [];
+                      options={options}
+                      readOnly={isDisabled}
+                      hasError={!!error}
+                      placeholder={field.placeholder ?? `Search ${field.label}…`}
+                      onChange={(val) => {
                         rhfField.onChange(val);
                         onChange(field.code, val);
                       }}
-                      onBlur={rhfField.onBlur}
-                      disabled={isDisabled}
-                      aria-invalid={!!error}
-                      aria-describedby={error ? `${fieldId}-error` : undefined}
-                    >
-                      <option value="">Select…</option>
-                      {options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   );
                 }
 
