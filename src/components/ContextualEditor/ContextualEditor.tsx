@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, lazy, Suspense, Fragment } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import ImagePickerModal from '../shared/ImagePickerModal';
 import { Icon } from '../shared/Icon';
 import type { EditorMode, ToolbarAction } from '../../types/editor';
@@ -12,6 +13,7 @@ import { telemetryImpression, setTelemetryPageId } from '../../utils/telemetry';
 import { useFramework } from '../../hooks/useFramework';
 import { useQuestionRead } from '../../hooks/useQuestionRead';
 import { useLabels } from '../../hooks/useLabels';
+import { searchFrameworks } from '../../api/framework';
 import SparkMetaForm, { fieldMatchesSection, SingleSelectDropdown } from '../SparkMetaForm/SparkMetaForm';
 import formStyles from '../SparkMetaForm/SparkMetaForm.module.scss';
 import QuestionDetail from '../QuestionDetail/QuestionDetail';
@@ -153,9 +155,12 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   // useFramework() refetches immediately — see plan for framework-driven
   // category selection.
   const setContentFramework = useEditorStore((s) => s.setContentFramework);
-  const channelFrameworks = useEditorStore(
-    (s) => (s.channelData?.frameworks as Array<{ identifier: string; name: string }> | undefined) ?? [],
-  );
+  const frameworkListQuery = useQuery({
+    queryKey: ['framework-search'],
+    queryFn: searchFrameworks,
+    staleTime: 10 * 60 * 1000,
+  });
+  const channelFrameworks = frameworkListQuery.data ?? [];
   const handleFrameworkChange = useCallback((value: string) => {
     setContentFramework(value || null);
     handleFormChange('framework', value);

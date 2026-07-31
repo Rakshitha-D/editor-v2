@@ -7,6 +7,23 @@ export async function getFramework(frameworkId: string): Promise<IFramework> {
   return response.data?.result?.framework as IFramework;
 }
 
+/** Live, Live-status frameworks available for the Framework picker —
+ *  channel is scoped via apiClient's own X-Channel-Id header, not a body
+ *  filter (matches how the backend actually expects this search). */
+export async function searchFrameworks(): Promise<Array<{ identifier: string; name: string }>> {
+  const response = await apiClient.post(URLS.composite.search, {
+    request: {
+      filters: {
+        objectType: 'Framework',
+        status: ['Live'],
+        type: ['K-12', 'TPD'],
+        systemDefault: 'Yes',
+      },
+    },
+  });
+  return (response.data?.result?.Framework ?? []) as Array<{ identifier: string; name: string }>;
+}
+
 export async function searchTerms(
   frameworkId: string,
   categoryCode: string,
