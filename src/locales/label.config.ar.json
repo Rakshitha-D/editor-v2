@@ -367,6 +367,8 @@
     "sectionDetails": "تفاصيل القسم",
     "sectionDetailsSub": "عنوان هذا القسم وتعليماته.",
     "targetAudience": "الفئة المستهدفة",
+    "framework": "الإطار",
+    "selectFramework": "اختر الإطار",
     "targetAudienceSub": "مواءمة المنهج للمتعلمين المستهدفين.",
     "behaviourScoring": "السلوك والتقييم",
     "behaviourScoringSub": "كيفية توقيت المجموعة ومحاولاتها وتلخيصها.",

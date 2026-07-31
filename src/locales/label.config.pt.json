@@ -358,6 +358,8 @@
     "sectionDetails": "Detalhes da seção",
     "sectionDetailsSub": "Título e instruções para esta seção.",
     "targetAudience": "Público-alvo",
+    "framework": "Estrutura curricular",
+    "selectFramework": "Selecionar estrutura curricular",
     "targetAudienceSub": "Alinhamento curricular para os alunos pretendidos.",
     "behaviourScoring": "Comportamento e pontuação",
     "behaviourScoringSub": "Como o conjunto é cronometrado, tentado e resumido.",

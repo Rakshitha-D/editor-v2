@@ -376,6 +376,8 @@
     "sectionDetails": "Section Details",
     "sectionDetailsSub": "Title and instructions for this section.",
     "targetAudience": "Target Audience",
+    "framework": "Framework",
+    "selectFramework": "Select framework",
     "targetAudienceSub": "Curriculum alignment for the intended learners.",
     "behaviourScoring": "Behaviour & Scoring",
     "behaviourScoringSub": "How the set is timed, attempted and summarised.",

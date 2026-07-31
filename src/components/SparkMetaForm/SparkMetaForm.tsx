@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import type { ITerm } from '../../types/framework';
 import { Icon } from '../shared/Icon';
 import type { ICategoryField } from '../../api/categoryDefinition';
+import { useEditorStore } from '../../store/editor.store';
 import styles from './SparkMetaForm.module.scss';
 import ImagePickerModal from '../shared/ImagePickerModal';
 import ContentEditable from '../shared/ContentEditable';
@@ -47,6 +48,14 @@ export interface SparkMetaFormProps {
    * — `identifier` is used as the option value, `name` as the visible label.
    */
   frameworkTerms?: Map<string, FrameworkTerm[]>;
+  /**
+   * True for the root (questionset-level) form only. The "framework" field
+   * (code: 'framework') is special-cased to live-update which framework's
+   * terms populate every other category dropdown on this same form — see
+   * editor.store.ts's contentFramework — but that only makes sense at the
+   * root, so section/question forms never have this set.
+   */
+  isRoot?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -779,12 +788,31 @@ function AppIconPicker({
 const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   fields,
   values,
-  onChange,
+  onChange: onChangeProp,
   onValidityChange,
   readOnly = false,
   section,
   frameworkTerms,
+  isRoot = false,
 }) => {
+  const setContentFramework = useEditorStore((s) => s.setContentFramework);
+  const channelFrameworks = useEditorStore(
+    (s) => (s.channelData?.frameworks as Array<{ identifier: string; name: string }> | undefined) ?? [],
+  );
+
+  // The "framework" field drives which framework's terms populate every
+  // OTHER category dropdown on this form — switching it needs to update
+  // editor.store.ts immediately (see useFramework.ts), not wait for save.
+  const onChange = useCallback(
+    (code: string, value: unknown) => {
+      if (isRoot && code === 'framework') {
+        setContentFramework(typeof value === 'string' && value ? value : null);
+      }
+      onChangeProp(code, value);
+    },
+    [isRoot, setContentFramework, onChangeProp],
+  );
+
   // Filter to only visible fields for this section
   // appIcon is handled by the card-header thumbnail, not the form.
   const visibleFields = fields.filter(
@@ -945,9 +973,15 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
 
                 // ── select (single) ───────────────────────────────────────
                 if (inputType === 'select') {
-                  // Use cascaded options when field has depends[] — filters by
-                  // parent term's associations (board→medium→gradeLevel→subject).
-                  const options = buildCascadedOptions(field, frameworkTerms, watchedValues);
+                  // The framework field's own options are the CHANNEL's
+                  // available frameworks (channelData.frameworks) — never
+                  // frameworkTerms, which only exists once a framework is
+                  // already selected (that would be circular).
+                  const options = field.code === 'framework'
+                    ? channelFrameworks.map((fw) => ({ value: fw.identifier, label: fw.name }))
+                    // Use cascaded options when field has depends[] — filters by
+                    // parent term's associations (board→medium→gradeLevel→subject).
+                    : buildCascadedOptions(field, frameworkTerms, watchedValues);
                   const currentVal = String(rhfField.value ?? '');
                   // Add saved value as a synthetic option when options aren't
                   // loaded yet (framework loading / API down).

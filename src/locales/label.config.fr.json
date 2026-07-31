@@ -358,6 +358,8 @@
     "sectionDetails": "Détails de la section",
     "sectionDetailsSub": "Titre et instructions pour cette section.",
     "targetAudience": "Public cible",
+    "framework": "Référentiel",
+    "selectFramework": "Sélectionner un référentiel",
     "targetAudienceSub": "Alignement du programme pour les apprenants visés.",
     "behaviourScoring": "Comportement et notation",
     "behaviourScoringSub": "Comment l'ensemble est chronométré, tenté et résumé.",
