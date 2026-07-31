@@ -876,7 +876,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // ContextualEditor.tsx), so this shares the same live search instead.
   const frameworkListQuery = useQuery({
     queryKey: ['framework-search'],
-    queryFn: searchFrameworks,
+    queryFn: () => searchFrameworks(),
     staleTime: 10 * 60 * 1000,
   });
   const channelFrameworks = frameworkListQuery.data ?? [];

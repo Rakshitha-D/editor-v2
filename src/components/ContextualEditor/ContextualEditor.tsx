@@ -155,9 +155,12 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   // useFramework() refetches immediately — see plan for framework-driven
   // category selection.
   const setContentFramework = useEditorStore((s) => s.setContentFramework);
+  // Which framework `type`s are selectable comes from the category
+  // definition's own orgFWType — never hardcoded (see api/framework.ts).
+  const orgFWType = useEditorStore((s) => s.categoryMeta?.frameworkMetadata?.orgFWType);
   const frameworkListQuery = useQuery({
-    queryKey: ['framework-search'],
-    queryFn: searchFrameworks,
+    queryKey: ['framework-search', (orgFWType ?? []).slice().sort().join(',')],
+    queryFn: () => searchFrameworks({ type: orgFWType, systemDefault: 'Yes' }),
     staleTime: 10 * 60 * 1000,
   });
   const channelFrameworks = frameworkListQuery.data ?? [];
