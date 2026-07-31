@@ -252,6 +252,8 @@
       "alreadyInSet": "This question is already in the set",
       "maxDepth": "Cannot add here — maximum depth reached",
       "attachFailed": "Could not add this question — please try again",
+      "copyFailed": "Could not copy this question — please try again",
+      "copyPublishFailed": "Copied, but could not be published — it stays a Draft.",
       "republishFailed": "Question saved, but could not be published — this edit stays hidden until it's republished.",
       "publishFailed": "Question created, but could not be published — it stays a Draft and won't show up in the Library until published."
     },
@@ -269,7 +271,8 @@
       "039": "Content is successfully rejected",
       "040": "Content sent back for corrections",
       "043": "Comment saved successfully",
-      "questionAdded": "\"{NAME}\" added"
+      "questionAdded": "\"{NAME}\" added",
+      "questionCopied": "\"{NAME}\" copied"
     }
   },
   "categoryLabels": {
@@ -443,6 +446,7 @@
     "noQuestionsFound": "No questions found. Try a different search.",
     "untitledQuestion": "Untitled Question",
     "addToQuestionSet": "Add to question set",
+    "copyQuestion": "Copy to this section",
     "loadMoreQuestions": "Load more questions",
     "loading": "Loading…",
     "loadMore": "Load more",
