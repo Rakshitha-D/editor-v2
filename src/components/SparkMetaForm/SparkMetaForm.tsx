@@ -335,6 +335,65 @@ function buildCascadedOptions(
 }
 
 // ---------------------------------------------------------------------------
+// Framework-conditional category fields — a field like Industry/Domain/Skill
+// only makes sense for a framework that actually has those categories (e.g.
+// USF); a standard K-12 framework (e.g. CBSE) has board/medium/gradeLevel/
+// subject instead. Symmetric in both directions: drop a static field whose
+// category isn't part of the selected framework, and synthesize a plain
+// multiselect for any of the framework's categories not already covered by
+// a kept field — same approach the collection editor's adaptFrameworkFields
+// uses, generalized instead of hardcoded to the K-12 set specifically.
+// ---------------------------------------------------------------------------
+
+/** A field's options can ONLY come from framework term data (never
+ *  field.range/field.enum) — the only kind of field this adaptation should
+ *  ever touch. A select/multiselect field that already has its own fixed
+ *  range/enum (license, maxQuestions, …) is never framework-specific. */
+function isFrameworkDrivenField(field: ICategoryField): boolean {
+  const isSelectLike = field.inputType === 'select' || isMultiSelectField(field);
+  if (!isSelectLike) return false;
+  const hasFixedOptions = Array.isArray(field.range) && field.range.length > 0
+    || Array.isArray(field.enum) && field.enum.length > 0;
+  return !hasFixedOptions;
+}
+
+function adaptFieldsForFramework(
+  fields: ICategoryField[],
+  frameworkTerms: Map<string, FrameworkTerm[]> | undefined,
+): ICategoryField[] {
+  // No framework categories loaded yet (still fetching, or none selected) —
+  // leave the static field list exactly as the category-definition API gave it.
+  if (!frameworkTerms || frameworkTerms.size === 0) return fields;
+
+  const frameworkCategoryCodes = new Set(frameworkTerms.keys());
+
+  const kept = fields.filter((f) => {
+    if (!isFrameworkDrivenField(f)) return true;
+    const categoryCode = f.sourceCategory ?? f.code;
+    return frameworkCategoryCodes.has(categoryCode);
+  });
+
+  // buildOptions() already resolves a field's options from frameworkTerms
+  // first (keyed by sourceCategory ?? code) — no range/enum needed here.
+  const keptCodes = new Set(kept.map((f) => f.sourceCategory ?? f.code));
+  const dynamic: ICategoryField[] = [];
+  for (const code of frameworkCategoryCodes) {
+    if (keptCodes.has(code)) continue;
+    dynamic.push({
+      code,
+      label: code.charAt(0).toUpperCase() + code.slice(1),
+      inputType: 'multiselect',
+      required: false,
+      editable: true,
+      visible: true,
+      section: 'Audience & Curriculum',
+      sourceCategory: code,
+    });
+  }
+  return dynamic.length ? [...kept, ...dynamic] : kept;
+}
+
+// ---------------------------------------------------------------------------
 // Build default values for react-hook-form from external `values` prop
 // ---------------------------------------------------------------------------
 
@@ -813,9 +872,17 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
     [isRoot, setContentFramework, onChangeProp],
   );
 
+  // Drop/add category fields that don't/do belong to the selected framework
+  // (e.g. Industry/Domain/Skill for USF vs board/medium/gradeLevel/subject
+  // for a K-12 framework like CBSE) — see adaptFieldsForFramework above.
+  const adaptedFields = useMemo(
+    () => adaptFieldsForFramework(fields, frameworkTerms),
+    [fields, frameworkTerms],
+  );
+
   // Filter to only visible fields for this section
   // appIcon is handled by the card-header thumbnail, not the form.
-  const visibleFields = fields.filter(
+  const visibleFields = adaptedFields.filter(
     (f) => f.visible && f.inputType !== 'appIcon' && fieldMatchesSection(f, section),
   );
 
@@ -827,7 +894,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
     watch,
     setValue,
   } = useForm({
-    defaultValues: buildDefaultValues(fields, values, section),
+    defaultValues: buildDefaultValues(adaptedFields, values, section),
     mode: 'onChange',
   });
 
@@ -838,14 +905,14 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // Used to reset child fields when a parent changes.
   const dependentsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
-    for (const f of fields) {
+    for (const f of adaptedFields) {
       for (const dep of f.depends ?? []) {
         if (!map[dep]) map[dep] = [];
         map[dep].push(f.code);
       }
     }
     return map;
-  }, [fields]);
+  }, [adaptedFields]);
 
   const resetDependents = useCallback((parentCode: string) => {
     for (const dep of dependentsMap[parentCode] ?? []) {
@@ -861,12 +928,13 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
 
   // Sync form values when values, section, or frameworkTerms change.
   // frameworkTerms is included so the reset fires once terms arrive — the
-  // select can only show a saved value after its option list is populated.
+  // select can only show a saved value after its option list is populated,
+  // AND so switching frameworks re-syncs against the now-adapted field set.
   useEffect(() => {
-    reset(buildDefaultValues(fields, values, section));
+    reset(buildDefaultValues(adaptedFields, values, section));
     void trigger();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(values), section, frameworkTerms]);
+  }, [JSON.stringify(values), section, frameworkTerms, adaptedFields]);
 
   // Notify parent of validity changes
   useEffect(() => {
