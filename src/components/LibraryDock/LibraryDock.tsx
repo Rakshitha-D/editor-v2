@@ -297,7 +297,22 @@ export function LibraryDock({ onCollapse }: LibraryDockProps) {
           return;
         }
 
-        const resultId = addExistingQuestion(targetId, { ...createMeta, identifier: newId });
+        // Re-read the just-created (and possibly just-published) question —
+        // publish bumps versionKey, and createMeta never had one to begin
+        // with. Without this, the node's versionKey stays blank until
+        // useQuestionRead's own auto-fetch resolves (it fires once this
+        // copy is selected below), which the user can easily race past by
+        // opening it for editing and saving right away — a guaranteed
+        // BLANK_VERSION on that first save, self-healed by useSaveQuestion's
+        // stale-versionKey retry, but a wasted round-trip every time.
+        let finalMeta: Record<string, unknown> = createMeta;
+        try {
+          finalMeta = await readQuestion(newId);
+        } catch (readErr) {
+          console.error('[LibraryDock] copy re-read failed, using local metadata:', readErr);
+        }
+
+        const resultId = addExistingQuestion(targetId, { ...finalMeta, identifier: newId });
         updateNode(resultId, { visibility: 'Default' });
         useCopyRegistryStore.getState().markAsCopy(newId);
 
