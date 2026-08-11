@@ -8,8 +8,11 @@ import { useEditorStore } from '../../store/editor.store';
 import { getUserId, isEditingAllowed } from '../../utils/context';
 import { labelFrom } from '../../utils/labels';
 import { useLabels } from '../../hooks/useLabels';
-import SparkMetaForm from '../SparkMetaForm/SparkMetaForm';
+import SparkMetaForm, { SingleSelectDropdown } from '../SparkMetaForm/SparkMetaForm';
+import formStyles from '../SparkMetaForm/SparkMetaForm.module.scss';
 import { useFramework } from '../../hooks/useFramework';
+import { searchFrameworks } from '../../api/framework';
+import { useQuery } from '@tanstack/react-query';
 import ImagePickerModal from '../shared/ImagePickerModal';
 import { lazy, Suspense } from 'react';
 import { useTreeStore } from '../../store/tree.store';
@@ -326,13 +329,33 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
   const activeNodeMeta = useTreeStore((st) => st.activeNodeMeta);
   const updateNode = useTreeStore((st) => st.updateNode);
   const detailNodeId = useTreeStore((st) => st.selectedNodeId);
-  const { frameworkTerms } = useFramework();
   const handleDetailChange = (code: string, value: unknown) => {
     if (detailNodeId) updateNode(detailNodeId, { [code]: value });
   };
   // board/medium/gradeLevel/subject/audience are no longer inherited from
   // the question set — each question leaves them unset until chosen explicitly.
   const detailValues = (activeNodeMeta as Record<string, unknown>) ?? {};
+
+  // Standalone Framework picker for this question — mirrors the root's
+  // Audience & Curriculum tab (ContextualEditor.tsx) but stays fully local
+  // to this one question: it writes only to the question's own metadata and
+  // resolves this question's OWN category dropdowns (board/medium/
+  // gradeLevel/subject, or an Industry/Domain/Skill framework's own
+  // categories) from that value, never editor.store's global
+  // contentFramework. Falls back to the root/live framework (useFramework's
+  // existing behaviour) until the question picks its own.
+  const questionOwnFramework = detailValues.framework as string | undefined;
+  const { frameworkTerms } = useFramework(questionOwnFramework);
+  const orgFWType = useEditorStore((st) => st.categoryMeta?.frameworkMetadata?.orgFWType);
+  const frameworkListQuery = useQuery({
+    queryKey: ['framework-search', (orgFWType ?? []).slice().sort().join(',')],
+    queryFn: () => searchFrameworks({ type: orgFWType, systemDefault: 'Yes' }),
+    staleTime: 10 * 60 * 1000,
+  });
+  const channelFrameworks = frameworkListQuery.data ?? [];
+  const handleQuestionFrameworkChange = (value: string) => {
+    handleDetailChange('framework', value);
+  };
 
   // Required-field validity of the Details (childMetadata) form below —
   // gates Save so questions can't reach review with missing metadata.
@@ -479,6 +502,21 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
           {questionFormConfig && questionFormConfig.length > 0 && (
             <div className="ce-ed-sec">
               <div className="ce-ed-lbl">{L('ui.details', 'Details')}</div>
+              {channelFrameworks.length > 0 && (
+                <div className={formStyles.field} style={{ marginBottom: 22 }}>
+                  <label htmlFor="question-framework-picker" className={formStyles.label}>
+                    {L('ui.framework', 'Framework')}
+                  </label>
+                  <SingleSelectDropdown
+                    fieldId="question-framework-picker"
+                    value={String(questionOwnFramework ?? '')}
+                    options={channelFrameworks.map((fw) => ({ value: fw.identifier, label: fw.name }))}
+                    disabled={isReadOnly}
+                    placeholder={L('ui.selectFramework', 'Select framework')}
+                    onChange={handleQuestionFrameworkChange}
+                  />
+                </div>
+              )}
               <SparkMetaForm
                 fields={questionFormConfig.map((f) => ({ ...f, editable: true }))}
                 values={detailValues}

@@ -88,6 +88,13 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
 
   const selectedNodeId = useTreeStore((s) => s.selectedNodeId);
   const activeNodeMeta = useTreeStore((s) => s.activeNodeMeta);
+  // The read-only question Details tab resolves category options from that
+  // question's OWN framework (picked in QuestionEditor.tsx's Details
+  // section), not root's — fully local, same as the editable form; falls
+  // back to root/live (frameworkTerms above) until the question has one.
+  const questionFrameworkTerms = useFramework(
+    isCurrentNodeQuestion ? (activeNodeMeta as Record<string, unknown> | undefined)?.framework as string | undefined : undefined,
+  ).frameworkTerms;
   const breadcrumb = useTreeStore((s) => s.breadcrumb);
   const updateNode = useTreeStore((s) => s.updateNode);
   const selectNode = useTreeStore((s) => s.selectNode);
@@ -419,7 +426,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       onChange={handleFormChange}
                       onValidityChange={handleFormValidityChange}
                       readOnly
-                      frameworkTerms={frameworkTerms}
+                      frameworkTerms={questionFrameworkTerms}
                     />
                   </div>
                 )}

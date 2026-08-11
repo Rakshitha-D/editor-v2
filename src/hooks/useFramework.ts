@@ -5,7 +5,15 @@ import { useTreeStore } from '../store/tree.store';
 import { getFramework } from '../api/framework';
 import type { IFramework, ITerm } from '../types/framework';
 
-export function useFramework() {
+/**
+ * @param overrideFrameworkId - Resolves categories against this framework
+ * instead of the root/live one, fully locally to the caller — e.g. a
+ * question that picked its own Framework in its Details form. Does not
+ * touch editor.store's contentFramework or affect any other caller; target
+ * frameworks still come from root (questions have no targetFWIds concept of
+ * their own). Omit for the existing root-level behaviour, unchanged.
+ */
+export function useFramework(overrideFrameworkId?: string) {
   const config = useEditorStore((s) => s.editorConfig);
   // Old editor precedence: the questionset's own framework/targetFWIds (read
   // via the hierarchy API) win over the host-supplied context — the host
@@ -21,7 +29,7 @@ export function useFramework() {
   // the content's own saved framework immediately, without needing a
   // save/reload round trip first — see editor.store.ts's contentFramework.
   const liveFramework = useEditorStore((s) => s.contentFramework);
-  const orgFrameworkId = liveFramework ?? frameworkIds[0] ?? '';
+  const orgFrameworkId = overrideFrameworkId || liveFramework || frameworkIds[0] || '';
 
   const orgQuery = useQuery<IFramework>({
     queryKey: ['framework', orgFrameworkId],
