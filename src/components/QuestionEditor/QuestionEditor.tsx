@@ -517,30 +517,34 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
           {questionFormConfig && questionFormConfig.length > 0 && (
             <div className="ce-ed-sec">
               <div className="ce-ed-lbl">{L('ui.details', 'Details')}</div>
-              {titleField && (
-                <SparkMetaForm
-                  fields={[{ ...titleField, editable: true }]}
-                  values={detailValues}
-                  onChange={handleDetailChange}
-                  onValidityChange={setTitleFieldValid}
-                  readOnly={isReadOnly}
-                  frameworkTerms={frameworkTerms}
-                />
-              )}
-              {channelFrameworks.length > 0 && (
-                <div className={formStyles.field} style={{ marginBottom: 22 }}>
-                  <label htmlFor="question-framework-picker" className={formStyles.label}>
-                    {L('ui.framework', 'Framework')}
-                    <span className={formStyles.required} aria-label="required"> *</span>
-                  </label>
-                  <SingleSelectDropdown
-                    fieldId="question-framework-picker"
-                    value={String(questionOwnFramework ?? '')}
-                    options={channelFrameworks.map((fw) => ({ value: fw.identifier, label: fw.name }))}
-                    disabled={isReadOnly}
-                    placeholder={L('ui.selectFramework', 'Select framework')}
-                    onChange={handleQuestionFrameworkChange}
-                  />
+              {(titleField || channelFrameworks.length > 0) && (
+                <div className={formStyles.pairRow}>
+                  {titleField && (
+                    <SparkMetaForm
+                      fields={[{ ...titleField, editable: true }]}
+                      values={detailValues}
+                      onChange={handleDetailChange}
+                      onValidityChange={setTitleFieldValid}
+                      readOnly={isReadOnly}
+                      frameworkTerms={frameworkTerms}
+                    />
+                  )}
+                  {channelFrameworks.length > 0 && (
+                    <div className={formStyles.field}>
+                      <label htmlFor="question-framework-picker" className={formStyles.label}>
+                        {L('ui.framework', 'Framework')}
+                        <span className={formStyles.required} aria-label="required"> *</span>
+                      </label>
+                      <SingleSelectDropdown
+                        fieldId="question-framework-picker"
+                        value={String(questionOwnFramework ?? '')}
+                        options={channelFrameworks.map((fw) => ({ value: fw.identifier, label: fw.name }))}
+                        disabled={isReadOnly}
+                        placeholder={L('ui.selectFramework', 'Select framework')}
+                        onChange={handleQuestionFrameworkChange}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               <SparkMetaForm
