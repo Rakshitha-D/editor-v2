@@ -952,11 +952,20 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // frameworkTerms is included so the reset fires once terms arrive — the
   // select can only show a saved value after its option list is populated,
   // AND so switching frameworks re-syncs against the now-adapted field set.
+  // adaptedFields is a NEW array/object graph every render whenever a caller
+  // passes an inline-built `fields` prop (e.g. `questionFormConfig.map(...)`
+  // or `withLicenseOptions(...)`, both re-invoked on every parent render) —
+  // depending on it by reference reruns this effect every render even when
+  // its content is unchanged. reset()+trigger() then call onValidityChange,
+  // which can change parent state, causing the parent (and this unstable
+  // fields prop) to re-render again — an infinite render loop (React error
+  // #185). Depend on content instead, same as `values` just above.
+  const adaptedFieldsKey = JSON.stringify(adaptedFields);
   useEffect(() => {
     reset(buildDefaultValues(adaptedFields, values, section));
     void trigger();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(values), section, frameworkTerms, adaptedFields]);
+  }, [JSON.stringify(values), section, frameworkTerms, adaptedFieldsKey]);
 
   // Notify parent of validity changes
   useEffect(() => {

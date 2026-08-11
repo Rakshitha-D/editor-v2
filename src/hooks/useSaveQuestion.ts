@@ -357,7 +357,18 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
 
   const channel         = config?.context?.channel   ?? '';
   const createdBy       = getUserId(config?.context);
-  const framework       = config?.context?.framework ?? '';
+  // Same precedence as useFramework.ts: a framework the user just picked on
+  // this question wins, then the questionset's own live/saved framework
+  // (contentFramework mirrors a not-yet-saved pick made on the root form),
+  // then the host-supplied default.
+  const rootMeta = (treeData[0]?.metadata ?? {}) as Record<string, unknown>;
+  const liveFramework = useEditorStore.getState().contentFramework;
+  const questionOwnFramework = (useTreeStore.getState().activeNodeMeta as Record<string, unknown> | undefined)?.framework;
+  const framework =
+    (typeof questionOwnFramework === 'string' && questionOwnFramework) ||
+    liveFramework ||
+    (rootMeta.framework as string) ||
+    (config?.context?.framework ?? '');
   // qType / category / interaction come from the question type registry.
   const typeDef = resolveQuestionType(questionType);
   const primaryCategory = typeDef?.primaryCategory ?? 'Multiple Choice Question';
@@ -457,15 +468,27 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
       ? { [hintUuid]: { en: hintText } }
       : {};
 
-    // License only — board/medium/gradeLevel/subject/audience are no longer
-    // copied from the root questionset onto every question.
-    const rootMeta = (treeData[0]?.metadata ?? {}) as Record<string, unknown>;
     const taxonomy: Record<string, unknown> = {};
     if (rootMeta.license) taxonomy.license = rootMeta.license;
     // Old editor: channel read supplies the default license when unset.
     if (!taxonomy.license) {
       const defaultLicense = useEditorStore.getState().channelData?.defaultLicense;
       if (typeof defaultLicense === 'string' && defaultLicense) taxonomy.license = defaultLicense;
+    }
+
+    // Framework + category-term selection is attached to the questionset's
+    // own metadata via useSaveHierarchy's cleanMetadata() — replicate the
+    // same attachment here so a question explicitly given its own board/
+    // medium/gradeLevel/subject/audience/topic/keywords/language (picked in
+    // the question's own Details form, same SparkMetaForm/ARRAY_FIELDS
+    // shape) actually reaches the backend instead of staying only in
+    // treeCache.
+    const CATEGORY_ARRAY_FIELDS = ['board', 'medium', 'gradeLevel', 'subject', 'audience', 'topic', 'keywords', 'language'] as const;
+    const detailMeta = { ...(useTreeStore.getState().getNodeById(selectedNodeId)?.metadata ?? {}), ...formMeta };
+    for (const field of CATEGORY_ARRAY_FIELDS) {
+      const v = detailMeta[field];
+      if (v === undefined) continue;
+      taxonomy[field] = Array.isArray(v) ? v : (v != null && v !== '' ? [v] : []);
     }
 
     const questionMeta: Record<string, unknown> = {
