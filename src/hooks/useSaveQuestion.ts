@@ -34,6 +34,8 @@ import { getUserId } from '../utils/context';
 import { applyContentI18n } from '../utils/i18nSerialize';
 import { resolveQuestionType } from '../registry';
 import { htmlToText } from '../utils/html';
+import { queryClient } from '../queryClient';
+import type { IFramework } from '../types/framework';
 
 // VersionKeyValidator.scala throws this exact message (ClientException,
 // ResponseCode.CLIENT_ERROR) for a stale versionKey on update — narrow the
@@ -478,14 +480,23 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
 
     // Framework + category-term selection is attached to the questionset's
     // own metadata via useSaveHierarchy's cleanMetadata() — replicate the
-    // same attachment here so a question explicitly given its own board/
-    // medium/gradeLevel/subject/audience/topic/keywords/language (picked in
-    // the question's own Details form, same SparkMetaForm/ARRAY_FIELDS
-    // shape) actually reaches the backend instead of staying only in
-    // treeCache.
-    const CATEGORY_ARRAY_FIELDS = ['board', 'medium', 'gradeLevel', 'subject', 'audience', 'topic', 'keywords', 'language'] as const;
+    // same attachment here so a question explicitly given its own category
+    // terms (picked in the question's own Details form) actually reaches
+    // the backend instead of staying only in treeCache. The static K-12
+    // codes cover a childForm with no framework chosen; once THIS question
+    // has its own framework, that framework's own categories (e.g. USF's
+    // Industry/Domain/Skill) are swept in too — read straight from the
+    // query cache useFramework() already populated to render this
+    // question's own category dropdowns, so the field list always matches
+    // whatever categories that specific framework actually has instead of
+    // a fixed K-12 guess.
+    const STATIC_CATEGORY_FIELDS = ['board', 'medium', 'gradeLevel', 'subject', 'audience', 'topic', 'keywords', 'language'];
+    const frameworkCategoryCodes = framework
+      ? (queryClient.getQueryData<IFramework>(['framework', framework])?.categories ?? []).map((c) => c.code)
+      : [];
+    const categoryFields = new Set([...STATIC_CATEGORY_FIELDS, ...frameworkCategoryCodes]);
     const detailMeta = { ...(useTreeStore.getState().getNodeById(selectedNodeId)?.metadata ?? {}), ...formMeta };
-    for (const field of CATEGORY_ARRAY_FIELDS) {
+    for (const field of categoryFields) {
       const v = detailMeta[field];
       if (v === undefined) continue;
       taxonomy[field] = Array.isArray(v) ? v : (v != null && v !== '' ? [v] : []);
