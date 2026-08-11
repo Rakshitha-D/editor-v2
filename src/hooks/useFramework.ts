@@ -69,11 +69,25 @@ export function useFramework(overrideFrameworkId?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgQuery.data, targetKey]);
 
+  // Category codes ordered by the ORG framework's own `index` (ascending) —
+  // target frameworks only contribute extra term data, not this content's
+  // taxonomy depth. Missing indexes sort last so a malformed entry can't
+  // accidentally become "highest index" and unlock multiselect it shouldn't
+  // have. Consumers (SparkMetaForm's single-vs-multi-select rule) treat the
+  // last entry as the skill-equivalent leaf category.
+  const categoryOrder = useMemo<string[]>(
+    () => [...(orgQuery.data?.categories ?? [])]
+      .sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity))
+      .map((c) => c.code),
+    [orgQuery.data],
+  );
+
   return {
     orgFramework: orgQuery.data,
     targetFrameworks: targetData,
     isLoading: orgQuery.isLoading,
     targetFrameworkIds: targetFWIds as string[],
     frameworkTerms,
+    categoryOrder,
   };
 }

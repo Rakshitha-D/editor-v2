@@ -69,7 +69,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   onToolbarEvent,
   hasContent = true,
 }) => {
-  const { frameworkTerms } = useFramework();
+  const { frameworkTerms, categoryOrder } = useFramework();
   const L = useLabels();
   // Hydrate the selected question from question/v2/read (old-editor parity —
   // hierarchy responses don't embed editorState/options/solutions).
@@ -455,6 +455,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                         readOnly={isReadOnly}
                         section="Details"
                         frameworkTerms={frameworkTerms}
+                        categoryOrder={categoryOrder}
                         isRoot={isCurrentNodeRoot}
                       />
                     ) : (
@@ -493,6 +494,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       readOnly={isReadOnly}
                       section="Audience & Curriculum"
                       frameworkTerms={frameworkTerms}
+                      categoryOrder={categoryOrder}
                       isRoot={isCurrentNodeRoot}
                     />
                   </div>
@@ -521,6 +523,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       readOnly={isReadOnly}
                       section="Behaviour"
                       frameworkTerms={frameworkTerms}
+                      categoryOrder={categoryOrder}
                       isRoot={isCurrentNodeRoot}
                     />
                   </div>

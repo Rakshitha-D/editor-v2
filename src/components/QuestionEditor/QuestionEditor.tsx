@@ -371,6 +371,9 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
     if ((type === 'mcq' || type === 'sa') && !(Number(activeNodeMeta?.maxScore) > 0)) {
       return L('ui.invalidEnterMarks', 'Enter the marks in Details');
     }
+    if (channelFrameworks.length > 0 && !questionOwnFramework) {
+      return L('ui.invalidSelectFramework', 'Select a framework in Details');
+    }
     if (!detailsValid) return L('ui.invalidFillDetails', 'Fill all required fields in Details');
     switch (type) {
       case 'mcq':
@@ -506,6 +509,7 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                 <div className={formStyles.field} style={{ marginBottom: 22 }}>
                   <label htmlFor="question-framework-picker" className={formStyles.label}>
                     {L('ui.framework', 'Framework')}
+                    <span className={formStyles.required} aria-label="required"> *</span>
                   </label>
                   <SingleSelectDropdown
                     fieldId="question-framework-picker"

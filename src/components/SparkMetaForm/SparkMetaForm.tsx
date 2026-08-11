@@ -51,6 +51,13 @@ export interface SparkMetaFormProps {
    */
   frameworkTerms?: Map<string, FrameworkTerm[]>;
   /**
+   * Category codes in framework order (ascending `index`), from the same
+   * `useFramework()` call that produced `frameworkTerms` — see
+   * `adaptFieldsForFramework`'s single-vs-multi-select rule below. Only
+   * meaningful together with `isRoot`; omit for section/question forms.
+   */
+  categoryOrder?: string[];
+  /**
    * True for the root (questionset-level) form only. The "framework" field
    * (code: 'framework') is special-cased to live-update which framework's
    * terms populate every other category dropdown on this same form — see
@@ -369,18 +376,43 @@ function isFrameworkDrivenField(field: ICategoryField): boolean {
 function adaptFieldsForFramework(
   fields: ICategoryField[],
   frameworkTerms: Map<string, FrameworkTerm[]> | undefined,
+  categoryOrder: string[] | undefined,
+  isRoot: boolean,
 ): ICategoryField[] {
   // No framework categories loaded yet (still fetching, or none selected) —
   // leave the static field list exactly as the category-definition API gave it.
   if (!frameworkTerms || frameworkTerms.size === 0) return fields;
 
   const frameworkCategoryCodes = new Set(frameworkTerms.keys());
+  // Only the highest-index (skill-equivalent leaf) category may hold more
+  // than one term — Industry/Domain, Board/Medium/Grade etc. narrow down a
+  // single path through the taxonomy. Root-only: a question's own category
+  // fields keep whatever inputType the category definition's childForm
+  // gave them (questionset creation is the only place this constraint was
+  // asked for).
+  const highestIndexCode = isRoot && categoryOrder?.length
+    ? categoryOrder[categoryOrder.length - 1]
+    : undefined;
 
-  const kept = fields.filter((f) => {
-    if (!isFrameworkDrivenField(f)) return true;
-    const categoryCode = f.sourceCategory ?? f.code;
-    return frameworkCategoryCodes.has(categoryCode);
-  });
+  const kept = fields
+    .filter((f) => {
+      if (!isFrameworkDrivenField(f)) return true;
+      const categoryCode = f.sourceCategory ?? f.code;
+      return frameworkCategoryCodes.has(categoryCode);
+    })
+    .map((f) => {
+      if (!isFrameworkDrivenField(f)) return f;
+      // required: true — a framework-driven category field is always
+      // mandatory once the framework supplies it, at root and per-question
+      // alike (matches the synthesized fields below).
+      if (!highestIndexCode) return { ...f, required: true };
+      const categoryCode = f.sourceCategory ?? f.code;
+      return {
+        ...f,
+        required: true,
+        inputType: categoryCode === highestIndexCode ? 'multiselect' : 'select',
+      };
+    });
 
   // buildOptions() already resolves a field's options from frameworkTerms
   // first (keyed by sourceCategory ?? code) — no range/enum needed here.
@@ -396,7 +428,7 @@ function adaptFieldsForFramework(
     dynamic.push({
       code,
       label: code.charAt(0).toUpperCase() + code.slice(1),
-      inputType: 'multiselect',
+      inputType: !highestIndexCode || code === highestIndexCode ? 'multiselect' : 'select',
       required: true,
       editable: true,
       visible: true,
@@ -866,6 +898,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   readOnly = false,
   section,
   frameworkTerms,
+  categoryOrder,
   isRoot = false,
 }) => {
   const setContentFramework = useEditorStore((s) => s.setContentFramework);
@@ -898,8 +931,8 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // (e.g. Industry/Domain/Skill for USF vs board/medium/gradeLevel/subject
   // for a K-12 framework like CBSE) — see adaptFieldsForFramework above.
   const adaptedFields = useMemo(
-    () => adaptFieldsForFramework(fields, frameworkTerms),
-    [fields, frameworkTerms],
+    () => adaptFieldsForFramework(fields, frameworkTerms, categoryOrder, isRoot),
+    [fields, frameworkTerms, categoryOrder, isRoot],
   );
 
   // Filter to only visible fields for this section
