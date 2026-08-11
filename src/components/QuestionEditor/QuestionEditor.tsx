@@ -357,9 +357,21 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
     handleDetailChange('framework', value);
   };
 
+  // The Framework picker renders between Title and the rest of the Details
+  // fields — split questionFormConfig around the 'name' (Title) field so it
+  // stays in that spot regardless of the category definition's own field
+  // order. Falls back to rendering nothing before Framework if the config
+  // has no 'name' field.
+  const titleField = questionFormConfig?.find((f) => f.code === 'name');
+  const restQuestionFields = (questionFormConfig ?? []).filter((f) => f.code !== 'name');
+
   // Required-field validity of the Details (childMetadata) form below —
-  // gates Save so questions can't reach review with missing metadata.
-  const [detailsValid, setDetailsValid] = useState(true);
+  // gates Save so questions can't reach review with missing metadata. Split
+  // across the Title field and the rest since they're now two separate
+  // SparkMetaForm instances (see the Framework picker split above).
+  const [titleFieldValid, setTitleFieldValid] = useState(true);
+  const [restFieldsValid, setRestFieldsValid] = useState(true);
+  const detailsValid = titleFieldValid && restFieldsValid;
 
   const invalidReason = (() => {
     const qBody = anyOf(i18nText.questionBody, questionBody);
@@ -505,6 +517,16 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
           {questionFormConfig && questionFormConfig.length > 0 && (
             <div className="ce-ed-sec">
               <div className="ce-ed-lbl">{L('ui.details', 'Details')}</div>
+              {titleField && (
+                <SparkMetaForm
+                  fields={[{ ...titleField, editable: true }]}
+                  values={detailValues}
+                  onChange={handleDetailChange}
+                  onValidityChange={setTitleFieldValid}
+                  readOnly={isReadOnly}
+                  frameworkTerms={frameworkTerms}
+                />
+              )}
               {channelFrameworks.length > 0 && (
                 <div className={formStyles.field} style={{ marginBottom: 22 }}>
                   <label htmlFor="question-framework-picker" className={formStyles.label}>
@@ -522,10 +544,10 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                 </div>
               )}
               <SparkMetaForm
-                fields={questionFormConfig.map((f) => ({ ...f, editable: true }))}
+                fields={restQuestionFields.map((f) => ({ ...f, editable: true }))}
                 values={detailValues}
                 onChange={handleDetailChange}
-                onValidityChange={setDetailsValid}
+                onValidityChange={setRestFieldsValid}
                 readOnly={isReadOnly}
                 frameworkTerms={frameworkTerms}
               />
