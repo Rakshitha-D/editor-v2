@@ -41,6 +41,15 @@ export interface SparkMetaFormProps {
    */
   section?: string;
   /**
+   * Bypasses the `section` tab logic entirely — every visible field is
+   * rendered regardless of its own `section`. For a caller with no tabs at
+   * all (the question editor's Details form, the read-only question meta
+   * view): omitting `section` there would otherwise mean "show only the
+   * untabbed fields" (root's Details-tab meaning), silently dropping any
+   * framework-driven category field tagged 'Audience & Curriculum'.
+   */
+  showAllSections?: boolean;
+  /**
    * Framework terms keyed by sourceCategory (e.g. "board", "medium",
    * "gradeLevel", "subject").  When provided, fields whose `sourceCategory`
    * matches a key will be populated from this map instead of falling back to
@@ -179,8 +188,13 @@ const NAMED_SECTIONS = ['Audience & Curriculum', 'Licensing'];
 
 /** Exported so callers (e.g. ContextualEditor's tab bar) can check whether a
  *  given tab's section has any required field, using the exact same
- *  matching rule the tab's own <SparkMetaForm section="..."/> render uses. */
-export function fieldMatchesSection(field: ICategoryField, section?: string): boolean {
+ *  matching rule the tab's own <SparkMetaForm section="..."/> render uses.
+ *  `showAllSections` bypasses the tab logic entirely — for a caller with no
+ *  tabs at all (the question editor's Details form, the read-only question
+ *  meta view), where "undefined section" must mean "show everything",
+ *  not "show only the untabbed fields" (root's actual meaning for it). */
+export function fieldMatchesSection(field: ICategoryField, section?: string, showAllSections?: boolean): boolean {
+  if (showAllSections) return true;
   if (section === undefined) {
     // Details tab: include fields with no section or unknown section
     return !field.section || !NAMED_SECTIONS.includes(field.section);
@@ -447,10 +461,11 @@ function buildDefaultValues(
   fields: ICategoryField[],
   values: Record<string, unknown>,
   section?: string,
+  showAllSections?: boolean,
 ): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
   for (const f of fields) {
-    if (!f.visible || !fieldMatchesSection(f, section)) continue;
+    if (!f.visible || !fieldMatchesSection(f, section, showAllSections)) continue;
     const v = values[f.code];
     if (isMultiSelectField(f) || f.inputType === 'keywords') {
       defaults[f.code] = Array.isArray(v) ? v : v ? [String(v)] : [];
@@ -897,6 +912,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   onValidityChange,
   readOnly = false,
   section,
+  showAllSections = false,
   frameworkTerms,
   categoryOrder,
   isRoot = false,
@@ -938,7 +954,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // Filter to only visible fields for this section
   // appIcon is handled by the card-header thumbnail, not the form.
   const visibleFields = adaptedFields.filter(
-    (f) => f.visible && f.inputType !== 'appIcon' && fieldMatchesSection(f, section),
+    (f) => f.visible && f.inputType !== 'appIcon' && fieldMatchesSection(f, section, showAllSections),
   );
 
   const {
@@ -949,7 +965,7 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
     watch,
     setValue,
   } = useForm({
-    defaultValues: buildDefaultValues(adaptedFields, values, section),
+    defaultValues: buildDefaultValues(adaptedFields, values, section, showAllSections),
     mode: 'onChange',
   });
 
@@ -995,10 +1011,10 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // #185). Depend on content instead, same as `values` just above.
   const adaptedFieldsKey = JSON.stringify(adaptedFields);
   useEffect(() => {
-    reset(buildDefaultValues(adaptedFields, values, section));
+    reset(buildDefaultValues(adaptedFields, values, section, showAllSections));
     void trigger();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(values), section, frameworkTerms, adaptedFieldsKey]);
+  }, [JSON.stringify(values), section, showAllSections, frameworkTerms, adaptedFieldsKey]);
 
   // Notify parent of validity changes
   useEffect(() => {
