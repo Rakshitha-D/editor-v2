@@ -427,7 +427,6 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       onValidityChange={handleFormValidityChange}
                       readOnly
                       frameworkTerms={questionFrameworkTerms}
-                      showAllSections
                     />
                   </div>
                 )}

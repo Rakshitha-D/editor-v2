@@ -536,7 +536,6 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                       onValidityChange={setTitleFieldValid}
                       readOnly={isReadOnly}
                       frameworkTerms={frameworkTerms}
-                      showAllSections
                     />
                   )}
                   {channelFrameworks.length > 0 && (
@@ -564,7 +563,6 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                 onValidityChange={setRestFieldsValid}
                 readOnly={isReadOnly}
                 frameworkTerms={frameworkTerms}
-                showAllSections
               />
             </div>
           )}
