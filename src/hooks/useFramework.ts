@@ -91,3 +91,18 @@ export function useFramework(overrideFrameworkId?: string) {
     categoryOrder,
   };
 }
+
+/**
+ * Same target-framework precedence useFramework() applies internally
+ * (rootMeta.targetFWIds wins over the host-supplied config) — extracted for
+ * plain, non-hook code that needs to resolve the same ids without
+ * subscribing to store changes (useSaveQuestion.ts, reading straight out of
+ * getState() at save time to sweep target frameworks' categories into the
+ * taxonomy payload, same as this hook's frameworkTerms merge does).
+ */
+export function resolveTargetFrameworkIds(): string[] {
+  const config = useEditorStore.getState().editorConfig;
+  const rootMeta = useTreeStore.getState().treeData[0]?.metadata as Record<string, unknown> | undefined;
+  return ((rootMeta?.targetFWIds as string[] | undefined)
+    ?? config?.context?.targetFWIds ?? config?.config?.targetFWIds ?? []) as string[];
+}

@@ -383,6 +383,15 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
     if ((type === 'mcq' || type === 'sa') && !(Number(activeNodeMeta?.maxScore) > 0)) {
       return L('ui.invalidEnterMarks', 'Enter the marks in Details');
     }
+    // channelFrameworks is [] until frameworkListQuery resolves — without
+    // this, a question saved during that window would skip the required-
+    // framework check entirely just because the list hadn't arrived yet.
+    // isLoading (not isFetching) so this only covers the one-time-per-
+    // session gap before the first resolution, not later background
+    // refetches of already-known data.
+    if (frameworkListQuery.isLoading) {
+      return L('ui.invalidLoadingFrameworks', 'Loading frameworks…');
+    }
     if (channelFrameworks.length > 0 && !questionOwnFramework) {
       return L('ui.invalidSelectFramework', 'Select a framework in Details');
     }

@@ -35,6 +35,7 @@ import { applyContentI18n } from '../utils/i18nSerialize';
 import { resolveQuestionType } from '../registry';
 import { htmlToText } from '../utils/html';
 import { queryClient } from '../queryClient';
+import { resolveTargetFrameworkIds } from './useFramework';
 import type { IFramework } from '../types/framework';
 
 // VersionKeyValidator.scala throws this exact message (ClientException,
@@ -339,6 +340,26 @@ function buildAnswerHtml(type: QuestionType, options: IOption[], answerText: str
 }
 
 // ---------------------------------------------------------------------------
+// Category codes for a question's own framework — org framework's own
+// categories PLUS every target framework's (same merge useFramework.ts's
+// frameworkTerms does via addCategories(org); targetData.forEach(addCategories),
+// just reading straight out of the query cache that hook already populated
+// instead of subscribing to it). Missing the target half would silently
+// drop a term picked under a target-only category, same failure mode this
+// sweep exists to avoid for the org side.
+// ---------------------------------------------------------------------------
+function resolveCategoryCodesForFramework(orgFrameworkId: string): string[] {
+  const codes = new Set<string>();
+  const addFrom = (fwId: string) => {
+    const categories = queryClient.getQueryData<IFramework>(['framework', fwId])?.categories ?? [];
+    for (const c of categories) codes.add(c.code);
+  };
+  addFrom(orgFrameworkId);
+  resolveTargetFrameworkIds().forEach(addFrom);
+  return [...codes];
+}
+
+// ---------------------------------------------------------------------------
 // buildLiveQuestionMeta — the same metadata object useSaveQuestion sends to
 // the backend, built purely from live in-memory state (no API call). Used
 // both by save() below and by the question editor's pre-save preview, which
@@ -484,16 +505,12 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
     // terms (picked in the question's own Details form) actually reaches
     // the backend instead of staying only in treeCache. The static K-12
     // codes cover a childForm with no framework chosen; once THIS question
-    // has its own framework, that framework's own categories (e.g. USF's
-    // Industry/Domain/Skill) are swept in too — read straight from the
-    // query cache useFramework() already populated to render this
-    // question's own category dropdowns, so the field list always matches
-    // whatever categories that specific framework actually has instead of
-    // a fixed K-12 guess.
+    // has its own framework, that framework's own categories (org AND
+    // target — see resolveCategoryCodesForFramework) are swept in too, so
+    // the field list always matches whatever categories that framework
+    // actually has instead of a fixed K-12 guess.
     const STATIC_CATEGORY_FIELDS = ['board', 'medium', 'gradeLevel', 'subject', 'audience', 'topic', 'keywords', 'language'];
-    const frameworkCategoryCodes = framework
-      ? (queryClient.getQueryData<IFramework>(['framework', framework])?.categories ?? []).map((c) => c.code)
-      : [];
+    const frameworkCategoryCodes = framework ? resolveCategoryCodesForFramework(framework) : [];
     const categoryFields = new Set([...STATIC_CATEGORY_FIELDS, ...frameworkCategoryCodes]);
     const detailMeta = { ...(useTreeStore.getState().getNodeById(selectedNodeId)?.metadata ?? {}), ...formMeta };
     for (const field of categoryFields) {

@@ -408,21 +408,39 @@ function adaptFieldsForFramework(
     ? categoryOrder[categoryOrder.length - 1]
     : undefined;
 
+  // A static field's own code doesn't always match the live framework's
+  // category code — a category-definition form can name its board field
+  // e.g. 'boardIds' while the framework's own category code is 'board',
+  // with no sourceCategory to bridge the two. Falling back to a label
+  // match (Board ~ board) catches that: without it, such a field (a) never
+  // resolves its options from frameworkTerms (sits empty, since
+  // buildOptions() looks it up by sourceCategory ?? code), AND (b) never
+  // registers in keptCodes below, so the dynamic-synthesis loop adds a
+  // SECOND field for the very same category — the duplicate Board/Medium/
+  // GradeLevel/Subject rows this fixes.
+  const resolveCategoryCode = (field: ICategoryField): string | undefined => {
+    if (field.sourceCategory) return field.sourceCategory;
+    if (frameworkCategoryCodes.has(field.code)) return field.code;
+    const byLabel = field.label?.trim().toLowerCase();
+    return byLabel && frameworkCategoryCodes.has(byLabel) ? byLabel : undefined;
+  };
+
   const kept = fields
-    .filter((f) => {
-      if (!isFrameworkDrivenField(f)) return true;
-      const categoryCode = f.sourceCategory ?? f.code;
-      return frameworkCategoryCodes.has(categoryCode);
-    })
+    .filter((f) => !isFrameworkDrivenField(f) || !!resolveCategoryCode(f))
     .map((f) => {
       if (!isFrameworkDrivenField(f)) return f;
+      const categoryCode = resolveCategoryCode(f)!;
+      // Stamp the resolved category back onto the field (when it only
+      // matched via label) so buildOptions()/buildCascadedOptions() — which
+      // only ever look at sourceCategory ?? code, not this function's own
+      // resolution — also find the framework's live terms for it.
+      const withSourceCategory = f.sourceCategory ? f : { ...f, sourceCategory: categoryCode };
       // required: true — a framework-driven category field is always
       // mandatory once the framework supplies it, at root and per-question
       // alike (matches the synthesized fields below).
-      if (!highestIndexCode) return { ...f, required: true };
-      const categoryCode = f.sourceCategory ?? f.code;
+      if (!highestIndexCode) return { ...withSourceCategory, required: true };
       return {
-        ...f,
+        ...withSourceCategory,
         required: true,
         inputType: categoryCode === highestIndexCode ? 'multiselect' : 'select',
       };

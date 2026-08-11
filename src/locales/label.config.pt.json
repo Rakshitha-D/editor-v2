@@ -395,6 +395,7 @@
     "invalidEnterTitle": "Digite o título em Detalhes",
     "invalidEnterMarks": "Digite os pontos em Detalhes",
     "invalidSelectFramework": "Selecione uma estrutura curricular em Detalhes",
+    "invalidLoadingFrameworks": "Carregando estruturas curriculares…",
     "invalidFillDetails": "Preencha todos os campos obrigatórios em Detalhes",
     "invalidFillOptions": "Preencha todas as opções",
     "invalidMarkCorrect": "Marque uma opção como a resposta correta",
