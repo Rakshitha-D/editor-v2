@@ -177,9 +177,21 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   });
   const channelFrameworks = frameworkListQuery.data ?? [];
   const handleFrameworkChange = useCallback((value: string) => {
+    // Category values picked under the framework being LEFT no longer
+    // apply — clear them immediately so they don't linger in local state
+    // (and reappear/resend if the user saves without revisiting this tab).
+    // categoryOrder is this (about-to-be-former) org framework's own codes;
+    // useSaveHierarchy.ts strips the same thing defensively at save time,
+    // but the UI/local state should reflect the switch right away too.
+    if (selectedNodeId) {
+      const staleCodes = categoryOrder?.length ? categoryOrder : [...frameworkTerms.keys()];
+      const clearPatch: Record<string, unknown> = {};
+      for (const code of staleCodes) clearPatch[code] = undefined;
+      updateNode(selectedNodeId, clearPatch);
+    }
     setContentFramework(value || null);
     handleFormChange('framework', value);
-  }, [setContentFramework, handleFormChange]);
+  }, [selectedNodeId, categoryOrder, frameworkTerms, updateNode, setContentFramework, handleFormChange]);
 
   const handleFormValidityChange = useCallback((isValid: boolean) => {
     onToolbarEvent({ action: 'onFormStatusChange', data: { isValid } });
