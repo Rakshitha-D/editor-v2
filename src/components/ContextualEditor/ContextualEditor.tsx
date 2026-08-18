@@ -92,9 +92,14 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   // question's OWN framework (picked in QuestionEditor.tsx's Details
   // section), not root's — fully local, same as the editable form; falls
   // back to root/live (frameworkTerms above) until the question has one.
-  const questionFrameworkTerms = useFramework(
+  const questionFramework = useFramework(
     isCurrentNodeQuestion ? (activeNodeMeta as Record<string, unknown> | undefined)?.framework as string | undefined : undefined,
-  ).frameworkTerms;
+  );
+  const questionFrameworkTerms = questionFramework.frameworkTerms;
+  // Org-only category codes for that question's own framework — same fix as
+  // the editable Details form: a target framework's categories must never
+  // keep a field required here either, so this read-only view matches.
+  const questionCategoryOrder = questionFramework.categoryOrder;
   const breadcrumb = useTreeStore((s) => s.breadcrumb);
   const updateNode = useTreeStore((s) => s.updateNode);
   const selectNode = useTreeStore((s) => s.selectNode);
@@ -427,6 +432,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       onValidityChange={handleFormValidityChange}
                       readOnly
                       frameworkTerms={questionFrameworkTerms}
+                      categoryOrder={questionCategoryOrder}
                     />
                   </div>
                 )}
