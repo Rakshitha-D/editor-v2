@@ -387,7 +387,12 @@ function isFrameworkDrivenField(field: ICategoryField): boolean {
   return !hasFixedOptions;
 }
 
-function adaptFieldsForFramework(
+// Exported so non-rendering callers (useValidateAndSave.ts's missing-
+// required-fields check) can apply the exact same framework-conditional
+// keep/drop/required rule this component's own render uses, instead of
+// re-deriving "required" from the raw, framework-unaware category-
+// definition fields directly.
+export function adaptFieldsForFramework(
   fields: ICategoryField[],
   frameworkTerms: Map<string, FrameworkTerm[]> | undefined,
   categoryOrder: string[] | undefined,

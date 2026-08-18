@@ -10,7 +10,7 @@ import { useQuestionStore } from '../../store/question.store';
 import { useUiStore } from '../../store/ui.store';
 import { isEditingAllowed } from '../../utils/context';
 import { telemetryImpression, setTelemetryPageId } from '../../utils/telemetry';
-import { useFramework } from '../../hooks/useFramework';
+import { useFramework, allKnownFrameworkCategoryCodes } from '../../hooks/useFramework';
 import { useQuestionRead } from '../../hooks/useQuestionRead';
 import { useLabels } from '../../hooks/useLabels';
 import { searchFrameworks } from '../../api/framework';
@@ -177,21 +177,23 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   });
   const channelFrameworks = frameworkListQuery.data ?? [];
   const handleFrameworkChange = useCallback((value: string) => {
-    // Category values picked under the framework being LEFT no longer
-    // apply — clear them immediately so they don't linger in local state
-    // (and reappear/resend if the user saves without revisiting this tab).
-    // categoryOrder is this (about-to-be-former) org framework's own codes;
+    // Clear every category-term field ever seen this session — not just the
+    // outgoing framework's own codes. Two frameworks can share the same
+    // category code with different terms (e.g. both TPD and USF using
+    // industry/domain/skill); clearing only the outgoing framework's codes
+    // left a shared code's VALUE sitting in state, so it silently reappeared
+    // "pre-filled" the instant a framework with the same code was picked,
+    // even though the user never entered it under the new framework.
     // useSaveHierarchy.ts strips the same thing defensively at save time,
     // but the UI/local state should reflect the switch right away too.
     if (selectedNodeId) {
-      const staleCodes = categoryOrder?.length ? categoryOrder : [...frameworkTerms.keys()];
       const clearPatch: Record<string, unknown> = {};
-      for (const code of staleCodes) clearPatch[code] = undefined;
+      for (const code of allKnownFrameworkCategoryCodes()) clearPatch[code] = [];
       updateNode(selectedNodeId, clearPatch);
     }
     setContentFramework(value || null);
     handleFormChange('framework', value);
-  }, [selectedNodeId, categoryOrder, frameworkTerms, updateNode, setContentFramework, handleFormChange]);
+  }, [selectedNodeId, updateNode, setContentFramework, handleFormChange]);
 
   const handleFormValidityChange = useCallback((isValid: boolean) => {
     onToolbarEvent({ action: 'onFormStatusChange', data: { isValid } });
@@ -445,6 +447,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       readOnly
                       frameworkTerms={questionFrameworkTerms}
                       categoryOrder={questionCategoryOrder}
+                      showAllSections
                     />
                   </div>
                 )}

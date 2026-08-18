@@ -540,7 +540,13 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                       onChange={handleDetailChange}
                       onValidityChange={setTitleFieldValid}
                       readOnly={isReadOnly}
-                      frameworkTerms={frameworkTerms}
+                      // No frameworkTerms/categoryOrder here — 'name' is a
+                      // plain text field, never framework-driven. Passing
+                      // frameworkTerms would make adaptFieldsForFramework's
+                      // dynamic-category synthesis run for THIS instance
+                      // too, duplicating Industry/Domain/Skill (etc.) — the
+                      // restQuestionFields form below is the one place that
+                      // should ever render them.
                     />
                   )}
                   {channelFrameworks.length > 0 && (
@@ -569,6 +575,7 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                 readOnly={isReadOnly}
                 frameworkTerms={frameworkTerms}
                 categoryOrder={categoryOrder}
+                showAllSections
               />
             </div>
           )}

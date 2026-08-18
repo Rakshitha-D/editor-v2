@@ -8,6 +8,7 @@ import { getContentId, getUserId } from '../utils/context';
 import { notifyError, apiErrorMessage } from '../utils/notify';
 import { label } from '../utils/labels';
 import { queryClient } from '../queryClient';
+import { allKnownFrameworkCategoryCodes } from './useFramework';
 import { v4 as genUuid } from 'uuid';
 
 // ---------------------------------------------------------------------------
@@ -30,21 +31,6 @@ function categoryCodesForFramework(frameworkId: string | undefined): Set<string>
   if (!frameworkId) return new Set();
   const categories = queryClient.getQueryData<IFramework>(['framework', frameworkId])?.categories ?? [];
   return new Set(categories.map((c) => c.code));
-}
-
-/** Every category code seen across ANY framework fetched this session —
- *  the universe of fields a framework switch could ever have left behind.
- *  A field is only stripped below if its code is in this set (i.e. it's
- *  framework-bound at all) AND absent from the CURRENT framework's own set
- *  — an untouched, non-framework field (name, description, license, …)
- *  never matches this set and is left alone. */
-function allKnownFrameworkCategoryCodes(): Set<string> {
-  const codes = new Set<string>();
-  for (const query of queryClient.getQueryCache().findAll({ queryKey: ['framework'] })) {
-    const data = query.state.data as IFramework | undefined;
-    for (const c of data?.categories ?? []) codes.add(c.code);
-  }
-  return codes;
 }
 
 
@@ -198,7 +184,7 @@ function buildSavePayload(
   const rootId = nodes[0]?.identifier;
   const rootEntry = rootId ? (nodesModified[rootId] as { metadata?: Record<string, unknown> } | undefined) : undefined;
 
-  // Strip any category-term field left over from a framework the user has
+  // Clear any category-term field left over from a framework the user has
   // since switched away from — only ever touches codes known to be
   // framework-bound (allKnownFrameworkCategoryCodes), so unrelated fields
   // (name, description, license, …) are untouched. `rootEntry.metadata`
@@ -206,13 +192,27 @@ function buildSavePayload(
   // (cleanMetadata only spreads cacheEdits for an existing root) — fall
   // back to the persisted value so an unrelated save doesn't wipe fields
   // that still validly belong to the content's already-saved framework.
+  //
+  // This is a PATCH against an EXISTING node — the backend merges the sent
+  // fields into the already-stored document before validating, so simply
+  // omitting a stale field (e.g. board="CBSE" from before the switch)
+  // leaves the OLD value in place server-side and validation still rejects
+  // it against the new framework. Send an explicit empty value instead, so
+  // the merge actually overwrites/clears it.
   if (rootEntry?.metadata) {
     const effectiveFramework = (rootEntry.metadata.framework as string | undefined)
       ?? (nodes[0]?.metadata?.framework as string | undefined);
     if (effectiveFramework) {
       const currentCodes = categoryCodesForFramework(effectiveFramework);
       for (const code of allKnownFrameworkCategoryCodes()) {
-        if (!currentCodes.has(code)) delete rootEntry.metadata[code];
+        if (!currentCodes.has(code)) {
+          // Empirically board=[] clears it (no longer flagged); board=''
+          // does NOT — the backend still rejects an empty *string* for it
+          // ("board range data is empty from the given framework") even
+          // though medium/gradeLevel/subject clear fine as []. Always use
+          // [] here rather than guessing scalar-vs-array per field.
+          rootEntry.metadata[code] = [];
+        }
       }
     }
   }
