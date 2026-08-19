@@ -470,7 +470,17 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
 
   return (
     <div className="ce-ed">
-      <button className="ce-ed-back" type="button" onClick={handleBack}>
+      {/* Blocks every field/nav in this view while create/update+publish is
+          in flight — isSaving spans the whole save() call, so no edit can
+          race the payload already sent to the backend. */}
+      {isSaving && (
+        <div className="ce-ed-savelock" role="status" aria-live="polite" aria-busy="true">
+          <span className="ce-spinner" aria-hidden="true" />
+          <span>{L('ui.savingQuestion', 'Saving question…')}</span>
+        </div>
+      )}
+
+      <button className="ce-ed-back" type="button" onClick={handleBack} disabled={isSaving}>
         <Icon name="arrow-left" size={16} />{L('ui.backToSet', 'Back to set')}
       </button>
 

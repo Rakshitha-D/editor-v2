@@ -443,7 +443,17 @@ aside.ce-tree { max-width: none; margin: 0; }
 @keyframes ce-spin { to { transform: rotate(360deg); } }
 
 /* ── Question editor (when opened inline) ────────────────────── */
-.ce-ed { width: 100%; min-width: min(640px, 100%); max-width: 940px; margin: 0 auto; }
+.ce-ed { width: 100%; min-width: min(640px, 100%); max-width: 940px; margin: 0 auto; position: relative; }
+// Covers the whole question editor (including the "Back to set" button)
+// while a create/update save is in flight, so no field edit or navigation
+// can race the in-flight API call. z-index above ce-ed-toolbar's sticky 20.
+.ce-ed-savelock {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: rgba(255, 255, 255, 0.72); border-radius: 22px;
+  backdrop-filter: blur(1px);
+}
+.ce-ed-savelock span:last-child { font-size: 13.5px; font-weight: 700; color: var(--sb-text-2); }
 .ce-ed-back { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--sb-text-muted); padding: 6px 8px; border-radius: var(--sbx-radius-lg); margin-bottom: 12px; }
 .ce-ed-back:hover { color: var(--accent-deep); background: var(--accent-soft); }
 /* overflow:clip preserves border-radius visual clipping but does NOT break position:sticky (unlike overflow:hidden) */
